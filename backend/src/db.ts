@@ -218,6 +218,19 @@ for (const cat of seedCategories) {
   insertCat.run(cat.id, cat.name, cat.slug, cat.icon);
 }
 
+// ── Provider portfolio (issue #10) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS provider_portfolio (
+    id TEXT PRIMARY KEY,
+    provider_id TEXT NOT NULL,
+    image_url TEXT NOT NULL,
+    caption TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
+  );
+`);
+
 // ── Helper: get all categories ──
 export function getAllCategories() {
   return db.prepare('SELECT id, name, slug, icon FROM categories ORDER BY name').all();

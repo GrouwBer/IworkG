@@ -7,7 +7,11 @@ import requestRoutes from './routes/requests';
 import notificationRoutes from './routes/notifications';
 import favoritesRoutes from './routes/favorites';
 import contactsRoutes from './routes/contacts';
+<<<<<<< HEAD
 import providerRoutes from './routes/provider';
+=======
+import providerRoutes from './routes/providers';
+>>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
 
 const app = express();
 

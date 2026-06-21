@@ -9,7 +9,12 @@ import SearchPage from './pages/SearchPage';
 import RequestDetailPage from './pages/RequestDetailPage';
 import ContactsPage from './pages/ContactsPage';
 import FavoritesPage from './pages/FavoritesPage';
+<<<<<<< HEAD
 import ProviderRegisterPage from './pages/ProviderRegisterPage';
+=======
+import ProviderProfilePage from './pages/ProviderProfilePage';
+import ProviderEditPage from './pages/ProviderEditPage';
+>>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
 
 function App() {
   return (
@@ -28,6 +33,8 @@ function App() {
           <Route path="/favoritos" element={<ProtectedRoute><FavoritesPage /></ProtectedRoute>} />
           <Route path="/register/provider" element={<ProtectedRoute><ProviderRegisterPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/prestador/:id" element={<ProviderProfilePage />} />
+          <Route path="/prestador/editar" element={<ProtectedRoute><ProviderEditPage /></ProtectedRoute>} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/buscar" replace />} />
