@@ -11,13 +11,12 @@ export default function SearchPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [searchError, setSearchError] = useState('');
 
   const selectedCategory = searchParams.get('category_id') || '';
 
   // Load categories on mount
   useEffect(() => {
-    searchService.getCategories().then(setCategories).catch(() => setSearchError('Erro ao carregar categorias.'));
+    searchService.getCategories().then(setCategories).catch(console.error);
   }, []);
 
   // Fetch providers when category changes
@@ -25,7 +24,7 @@ export default function SearchPage() {
     setLoading(true);
     setMessage('');
 
-    const filters: { category_id?: string; lat?: number; lng?: number; limit?: number; offset?: number } = { limit: 50 };
+    const filters: any = { limit: 50 };
     if (selectedCategory) filters.category_id = selectedCategory;
 
     // Try to get user's location
@@ -43,7 +42,7 @@ export default function SearchPage() {
     }
   }, [selectedCategory]);
 
-  const doSearch = (filters: { category_id?: string; lat?: number; lng?: number; limit?: number; offset?: number }) => {
+  const doSearch = (filters: any) => {
     searchService.searchProviders(filters)
       .then((data) => {
         setProviders(data.results);
@@ -55,7 +54,7 @@ export default function SearchPage() {
           );
         }
       })
-      .catch(() => setSearchError('Erro ao buscar prestadores.'))
+      .catch(console.error)
       .finally(() => setLoading(false));
   };
 
@@ -298,12 +297,5 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
-  },
-  apiError: {
-    padding: '8px 24px',
-    fontSize: '13px',
-    color: '#dc2626',
-    backgroundColor: '#fef2f2',
-    borderBottom: '1px solid #fecaca',
   },
 };

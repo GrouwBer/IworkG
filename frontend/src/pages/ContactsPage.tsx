@@ -5,13 +5,12 @@ import { contactsService, type ContactItem } from '../services/history';
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [contactsError, setContactsError] = useState();
   const navigate = useNavigate();
 
   useEffect(() => {
     contactsService.getContacts()
       .then(setContacts)
-      .catch(() => setContactsError('Erro ao carregar contatos.'))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
@@ -26,7 +25,6 @@ export default function ContactsPage() {
       <main style={styles.main}>
         <h2 style={styles.title}>Meus Contatos</h2>
         <p style={styles.subtitle}>Histórico de profissionais que você contatou</p>
-        {contactsError && <div style={{ padding: '8px 16px', fontSize: '13px', color: '#dc2626', backgroundColor: '#fef2f2', borderRadius: '8px', marginBottom: '16px' }}>{contactsError}</div>}
 
         {loading ? (
           <p style={styles.empty}>Carregando...</p>

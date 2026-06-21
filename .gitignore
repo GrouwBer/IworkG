@@ -6,6 +6,3 @@ dist/
 
 # Runtime data
 backend/data/
-
-# Reasonix agent config
-.reasonix/
