@@ -1,15 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
-import { randomInt } from 'crypto';
 import db from '../db';
 import { config } from '../config';
 
 /**
  * Generate and store an OTP code for a phone number.
  * In production, this would send via Twilio, Vonage, or WhatsApp Business API.
- * For MVP, we log the code to console only (never return it to the client).
+ * For MVP, we log the code to console and return it (development mode).
  */
-export function generateOTP(phone: string): { expiresAt: string } {
-  const code = randomInt(100000, 999999).toString(); // 6-digit, cryptographically secure
+export function generateOTP(phone: string): { code: string; expiresAt: string } {
+  const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
   const expiresAt = new Date(
     Date.now() + config.otpExpiryMinutes * 60 * 1000
   ).toISOString();
@@ -25,7 +24,7 @@ export function generateOTP(phone: string): { expiresAt: string } {
   // In production, send via SMS/WhatsApp here
   console.log(`\n📱 OTP for ${phone}: ${code} (expires in ${config.otpExpiryMinutes} min)\n`);
 
-  return { expiresAt };
+  return { code, expiresAt };
 }
 
 /**
