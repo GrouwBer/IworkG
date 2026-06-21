@@ -75,12 +75,20 @@ db.exec(`
     city TEXT,
     state TEXT,
     active INTEGER NOT NULL DEFAULT 1,
+    raio_atuacao_km INTEGER NOT NULL DEFAULT 15,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
   );
 `);
+
+// ── Migration: add raio_atuacao_km if column doesn't exist ──
+try {
+  db.exec(`ALTER TABLE provider_profiles ADD COLUMN raio_atuacao_km INTEGER NOT NULL DEFAULT 15`);
+} catch {
+  // Column already exists — ignore
+}
 
 // ── Service Requests (issue #15) ──
 db.exec(`
@@ -232,6 +240,55 @@ export function searchProviders(filters: SearchFilters = {}) {
   params.push(limit, offset);
 
   return db.prepare(sql).all(...params);
+}
+
+// ── Helper: get provider profile by user ID ──
+export interface ProviderProfile {
+  id: string;
+  user_id: string;
+  category_id: string;
+  description: string | null;
+  rating: number;
+  review_count: number;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  state: string | null;
+  active: number;
+  raio_atuacao_km: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getProviderProfileByUserId(userId: string): ProviderProfile | undefined {
+  return db.prepare(
+    'SELECT * FROM provider_profiles WHERE user_id = ?'
+  ).get(userId) as ProviderProfile | undefined;
+}
+
+// ── Helper: update provider raio de atuação ──
+export function updateProviderRaioAtuacao(userId: string, raioKm: number): ProviderProfile | null {
+  const validValues = [5, 10, 15, 20, 30, 50];
+  if (!validValues.includes(raioKm)) return null;
+
+  db.prepare(
+    'UPDATE provider_profiles SET raio_atuacao_km = ?, updated_at = datetime(\'now\') WHERE user_id = ?'
+  ).run(raioKm, userId);
+
+  return getProviderProfileByUserId(userId) || null;
+}
+
+// ── Helper: toggle provider active status ──
+export function toggleProviderStatus(userId: string): { active: boolean } | null {
+  const profile = getProviderProfileByUserId(userId);
+  if (!profile) return null;
+
+  const newActive = profile.active === 1 ? 0 : 1;
+  db.prepare(
+    'UPDATE provider_profiles SET active = ?, updated_at = datetime(\'now\') WHERE user_id = ?'
+  ).run(newActive, userId);
+
+  return { active: newActive === 1 };
 }
 
 export default db;
