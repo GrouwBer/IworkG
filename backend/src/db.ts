@@ -82,6 +82,68 @@ db.exec(`
   );
 `);
 
+// ── Service Requests (issue #15) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS service_requests (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    category_id TEXT,
+    city TEXT,
+    state TEXT,
+    latitude REAL,
+    longitude REAL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS interests (
+    id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(request_id, provider_id),
+    FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    data TEXT,
+    read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS contact_history (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    contact_type TEXT NOT NULL DEFAULT 'direct',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client_id, provider_id),
+    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
 // ── Seed categories ──
 const seedCategories = [
   { id: 'cat-eletricista', name: 'Eletricista', slug: 'eletricista', icon: '⚡' },
