@@ -35,11 +35,20 @@ export default function SearchPage() {
           filters.lng = pos.coords.longitude;
           doSearch(filters);
         },
-        () => doSearch(filters) // Fallback: search without location
+        () => doSearch(filters), // Fallback: search without location
+        { timeout: 5000 } // 5s timeout for geolocation
       );
     } else {
       doSearch(filters);
     }
+
+    // Safety: stop loading after 15s even if geolocation hangs
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setMessage('Tempo limite ao obter localização. Tente novamente.');
+    }, 15000);
+
+    return () => clearTimeout(timeout);
   }, [selectedCategory]);
 
   const doSearch = (filters: any) => {
