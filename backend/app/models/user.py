@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import String, DateTime, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -20,7 +20,7 @@ class User(Base):
     telefone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     tipo: Mapped[UserType] = mapped_column(SAEnum(UserType), nullable=False)
     foto_perfil: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     ativo: Mapped[bool] = mapped_column(default=True)
 
     # Relacionamentos polimórficos: cada tipo de usuário tem seu perfil específico

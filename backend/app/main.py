@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from app.database import engine, Base
-from app.models import *  # noqa: F401,F403 — registra todos os modelos
+from app.models.user import User
+from app.models.provider import Provider
+from app.models.client import Client
+from app.models.category import Category
+from app.models.review import Review
+from app.models.service_request import ServiceRequest, Interest
+from app.models.report import Report
 from app.routes import providers
 
 # Cria tabelas no banco (SQLite — em produção usar Alembic/migrations)

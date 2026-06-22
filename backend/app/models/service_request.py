@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import String, Float, ForeignKey, DateTime, Text, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -30,7 +30,7 @@ class ServiceRequest(Base):
     status: Mapped[RequestStatus] = mapped_column(SAEnum(RequestStatus), default=RequestStatus.ABERTO)
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     client: Mapped["Client"] = relationship("Client")
     category: Mapped["Category"] = relationship("Category", back_populates="service_requests")
@@ -43,7 +43,7 @@ class Interest(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     service_request_id: Mapped[int] = mapped_column(ForeignKey("service_requests.id"), nullable=False)
     provider_id: Mapped[int] = mapped_column(ForeignKey("providers.id"), nullable=False)
-    criado_em: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     service_request: Mapped["ServiceRequest"] = relationship("ServiceRequest", back_populates="interests")
     provider: Mapped["Provider"] = relationship("Provider")

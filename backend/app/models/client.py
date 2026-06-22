@@ -1,3 +1,4 @@
+from datetime import datetime, UTC
 from sqlalchemy import ForeignKey, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -17,6 +18,7 @@ class Client(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship("User", back_populates="client")
     favoritos: Mapped[list["Provider"]] = relationship("Provider", secondary=favorites)
@@ -27,13 +29,13 @@ class Client(Base):
 
 
 class ContactHistory(Base):
-    """Histórico de contatos do cliente com prestadores (RF013)."""
+    """Historico de contatos do cliente com prestadores (RF013)."""
     __tablename__ = "contact_history"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
     provider_id: Mapped[int] = mapped_column(ForeignKey("providers.id"), nullable=False)
-    # data do contato é gerenciada via default no schema
+    criado_em: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     client: Mapped["Client"] = relationship("Client", back_populates="contatos")
     provider: Mapped["Provider"] = relationship("Provider")

@@ -1,4 +1,5 @@
-from sqlalchemy import String, Float, Integer, Boolean, ForeignKey, Table, Column
+from datetime import datetime, UTC
+from sqlalchemy import String, Float, Integer, Boolean, ForeignKey, Table, Column, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -23,7 +24,12 @@ class Provider(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     media_avaliacao: Mapped[float] = mapped_column(Float, default=0.0)
-    total_avaliacoes: Mapped[int] = mapped_column(Integer, default=0)
+    total_avaliacao: Mapped[int] = mapped_column(Integer, default=0)
+    criado_em: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        Index("ix_providers_location", "latitude", "longitude"),
+    )
 
     user: Mapped["User"] = relationship("User", back_populates="provider")
     categorias: Mapped[list["Category"]] = relationship("Category", secondary=provider_category, back_populates="providers")
@@ -42,5 +48,6 @@ class PortfolioItem(Base):
     url_imagem: Mapped[str] = mapped_column(String(500), nullable=False)
     tag: Mapped[str] = mapped_column(String(20), default="geral")  # antes, depois, geral
     descricao: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
     provider: Mapped["Provider"] = relationship("Provider", back_populates="portfolio")
