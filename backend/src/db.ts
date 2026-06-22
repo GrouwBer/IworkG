@@ -59,6 +59,7 @@ db.exec(`
     avatar_url TEXT,
     google_id TEXT UNIQUE,
     role TEXT NOT NULL DEFAULT 'client',
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -89,6 +90,13 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// Migration: add deleted_at for existing databases
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN deleted_at TEXT`);
+} catch {
+  // Column already exists — ignore
+}
 
 // ── Categories (issue #9) ──
 db.exec(`

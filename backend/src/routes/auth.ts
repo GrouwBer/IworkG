@@ -290,4 +290,178 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
   });
 });
 
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/send — Send recovery code (RF002)
+// Body: { phone: string } or { email: string }
+// ──────────────────────────────────────────────
+router.post('/recover/send', (req: Request, res: Response) => {
+  const { phone, email } = req.body;
+
+  if (!phone && !email) {
+    res.status(400).json({ error: 'Informe telefone ou e-mail para recuperação.' });
+    return;
+  }
+
+  if (phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length < 10 || cleaned.length > 15) {
+      res.status(400).json({ error: 'Número de telefone inválido.' });
+      return;
+    }
+
+    // Check if user exists with this phone
+    const user = db.prepare('SELECT id FROM users WHERE phone = ? AND deleted_at IS NULL').get(cleaned);
+    if (!user) {
+      // Don't reveal whether the account exists — security best practice
+      res.json({ message: 'Se o telefone estiver cadastrado, você receberá um código de recuperação.', method: 'phone' });
+      return;
+    }
+
+    const { expiresAt } = generateOTP(cleaned);
+    res.json({ message: 'Código de recuperação enviado.', expiresAt, method: 'phone' });
+    return;
+  }
+
+  if (email) {
+    // Check if user exists with this email
+    const user = db.prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NULL').get(email);
+    if (!user) {
+      res.json({ message: 'Se o e-mail estiver cadastrado, você receberá um link de recuperação.', method: 'email' });
+      return;
+    }
+
+    // For MVP: generate OTP tied to the email
+    const { expiresAt } = generateOTP(email);
+    res.json({ message: 'Código de recuperação enviado para o e-mail.', expiresAt, method: 'email' });
+  }
+});
+
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/verify — Verify recovery code (RF002)
+// Body: { phone: string } or { email: string }, code: string
+// ──────────────────────────────────────────────
+router.post('/recover/verify', (req: Request, res: Response) => {
+  const { phone, email, code } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: 'Código de recuperação é obrigatório.' });
+    return;
+  }
+
+  const identifier = phone ? phone.replace(/\D/g, '') : email;
+
+  if (!identifier) {
+    res.status(400).json({ error: 'Informe telefone ou e-mail.' });
+    return;
+  }
+
+  if (!verifyOTP(identifier, code)) {
+    res.status(401).json({ error: 'Código inválido ou expirado.' });
+    return;
+  }
+
+  // Generate a one-time recovery token (valid for 10 minutes)
+  const recoveryToken = uuidv4();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  db.prepare(
+    'INSERT INTO otp_codes (id, phone, code, expires_at, used) VALUES (?, ?, ?, ?, 1)'
+  ).run(uuidv4(), identifier, recoveryToken, expiresAt);
+
+  res.json({
+    message: 'Código verificado com sucesso.',
+    recoveryToken,
+    expiresAt,
+  });
+});
+
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/reset — Reset login method (RF002)
+// Body: recoveryToken, newPhone?: string, newEmail?: string
+// ──────────────────────────────────────────────
+router.post('/recover/reset', (req: Request, res: Response) => {
+  const { recoveryToken, newPhone, newEmail } = req.body;
+
+  if (!recoveryToken) {
+    res.status(400).json({ error: 'Token de recuperação é obrigatório.' });
+    return;
+  }
+
+  // Validate recovery token
+  const stored = db.prepare(
+    'SELECT phone, expires_at FROM otp_codes WHERE code = ? AND used = 1 AND expires_at > datetime(\'now\')'
+  ).get(recoveryToken) as any;
+
+  if (!stored) {
+    res.status(401).json({ error: 'Token de recuperação inválido ou expirado.' });
+    return;
+  }
+
+  const identifier = stored.phone;
+
+  if (!newPhone && !newEmail) {
+    res.status(400).json({ error: 'Informe o novo telefone ou e-mail.' });
+    return;
+  }
+
+  // Find user by original identifier
+  let user = db.prepare(
+    'SELECT * FROM users WHERE (phone = ? OR email = ?) AND deleted_at IS NULL'
+  ).get(identifier, identifier) as any;
+
+  if (!user) {
+    res.status(404).json({ error: 'Usuário não encontrado.' });
+    return;
+  }
+
+  // Update login method
+  if (newPhone) {
+    const cleaned = newPhone.replace(/\D/g, '');
+    db.prepare('UPDATE users SET phone = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(cleaned, user.id);
+  }
+  if (newEmail) {
+    db.prepare('UPDATE users SET email = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(newEmail, user.id);
+  }
+
+  // Revoke old tokens
+  revokeAllUserTokens(user.id);
+
+  res.json({ message: 'Método de acesso atualizado com sucesso. Faça login novamente.' });
+});
+
+// ──────────────────────────────────────────────
+// DELETE /api/auth/account — Delete/Anonymize account (RF004 / LGPD)
+// Body: { confirm: true }
+// ──────────────────────────────────────────────
+router.delete('/account', requireAuth, (req: Request, res: Response) => {
+  const { confirm } = req.body;
+
+  if (!confirm) {
+    res.status(400).json({ error: 'Confirmação explícita é necessária para excluir a conta.' });
+    return;
+  }
+
+  const userId = req.user!.id;
+
+  // Anonymize user data (LGPD compliance)
+  db.prepare(`
+    UPDATE users SET
+      name = 'Usuário removido',
+      email = NULL,
+      phone = NULL,
+      avatar_url = NULL,
+      google_id = NULL,
+      deleted_at = datetime('now'),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(userId);
+
+  // Revoke all active tokens
+  revokeAllUserTokens(userId);
+
+  res.json({ message: 'Conta excluída com sucesso. Seus dados pessoais foram removidos, mantendo apenas avaliações anônimas.' });
+});
+
 export default router;
