@@ -375,8 +375,8 @@ function buildSearchWhere(filters: SearchFilters): { whereClause: string; params
   let whereClause = '';
 
   if (category_id) {
-    whereClause += ' AND pp.category_id = ?';
-    params.push(category_id);
+    whereClause += ' AND (pp.category_id = ? OR pp.id IN (SELECT provider_id FROM provider_categories WHERE category_id = ?))';
+    params.push(category_id, category_id);
   }
 
   if (query) {
