@@ -4,206 +4,78 @@ import { useAuth } from '../contexts/AuthContext';
 import { providerService, type WizardState, type Category } from '../services/provider';
 import ProgressBar from '../components/ProgressBar';
 
-const TOTAL = 5;
-const LABELS = ['Dados', 'Categoria', 'Descrição', 'Localização', 'Revisão'];
+const T = 6;
+const LABELS = ['Dados', 'Categorias', 'Descrição', 'Localização', 'Verificação', 'Revisão'];
 
-interface Form {
-  name: string; phone: string; selectedCategory: string;
-  description: string; city: string; state: string;
-}
+interface F { name: string; phone: string; sel: string[]; desc: string; exp: string; rad: string; addr: string; city: string; state: string }
 
 export default function ProviderRegisterPage() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
-  const [wizard, setWizard] = useState<WizardState | null>(null);
+  const { user, isAuthenticated, loading: al } = useAuth();
+  const nav = useNavigate();
+  const [wiz, setWiz] = useState<WizardState | null>(null);
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [load, setLoad] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState<Form>({
-    name: '', phone: '', selectedCategory: '',
-    description: '', city: '', state: '',
-  });
+  const [f, setF] = useState<F>({ name: '', phone: '', sel: [], desc: '', exp: '', rad: '10', addr: '', city: '', state: '' });
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) { navigate('/login'); return; }
-    (async () => {
-      try {
-        const s = await providerService.getWizard();
-        setWizard(s);
-        setForm(prev => ({ ...prev,
-          name: s.stepData.name || s.prefill.name || '',
-          phone: s.stepData.phone || s.prefill.phone || '',
-          selectedCategory: s.stepData.selectedCategory || '',
-          description: s.stepData.description || '',
-          city: s.stepData.city || '',
-          state: s.stepData.state || '',
-        }));
-        setStep(s.currentStep || 1);
-      } catch (err: any) {
-        if (err.response?.status === 401) navigate('/login');
-        else setError('Erro ao carregar wizard.');
-      } finally { setLoading(false); }
-    })();
-  }, [isAuthenticated, authLoading]);
+  useEffect(() => { if (al) return; if (!isAuthenticated) { nav('/login'); return; }
+    (async () => { try {
+      const s = await providerService.getWizard(); setWiz(s);
+      setF(p => ({ ...p, name: s.stepData.name || s.prefill.name || '', phone: s.stepData.phone || s.prefill.phone || '', sel: s.stepData.selectedCategories || [], desc: s.stepData.description || '', exp: s.stepData.experienceYears || '', rad: s.stepData.serviceRadius || '10', addr: s.stepData.address || '', city: s.stepData.city || '', state: s.stepData.state || '' }));
+      setStep(s.currentStep);
+    } catch (e: any) { if (e.response?.status === 401) nav('/login'); else setErr('Erro ao carregar wizard.'); } finally { setLoad(false); } })();
+  }, [isAuthenticated, al]);
 
-  const saveProgress = async (s: number, d: Partial<Form>) => {
-    setSaving(true); setError('');
-    try { await providerService.saveWizard(s, d); } catch { setError('Erro ao salvar.'); throw new Error(); }
-    finally { setSaving(false); }
-  };
-
-  const validate = (s: number): string | null => {
-    if (s === 1) {
-      if (!form.name.trim()) return 'Nome é obrigatório.';
-      if (!form.phone.trim() || form.phone.replace(/\D/g, '').length < 10) return 'Telefone inválido.';
-    }
-    if (s === 2 && !form.selectedCategory) return 'Selecione uma categoria.';
-    if (s === 3 && form.description.trim().length < 10) return 'Descrição: mínimo 10 caracteres.';
-    if (s === 4) {
-      if (!form.city.trim() || !form.state.trim()) return 'Cidade e estado são obrigatórios.';
-    }
+  const save = async (st: number, d: Partial<F>) => { setSaving(true); setErr(''); try { await providerService.saveWizard(st, d); } catch { setErr('Erro ao salvar.'); throw new Error(); } finally { setSaving(false); } };
+  const val = (s: number): string | null => {
+    if (s === 1) { if (!f.name.trim()) return 'Nome obrigatório.'; if (f.phone.replace(/\D/g, '').length < 10) return 'Telefone inválido.'; }
+    if (s === 2 && f.sel.length === 0) return 'Selecione ao menos uma categoria.';
+    if (s === 3 && f.desc.trim().length < 10) return 'Descrição: mínimo 10 caracteres.';
+    if (s === 4) { if (!f.addr.trim()) return 'Endereço obrigatório.'; if (!f.city.trim() || !f.state.trim()) return 'Cidade/estado obrigatórios.'; if (Number(f.rad) < 1) return 'Raio mínimo 1 km.'; }
     return null;
   };
-
-  const handleNext = async () => {
-    const v = validate(step);
-    if (v) { setError(v); return; }
-    const data: any = { name: form.name, phone: form.phone };
-    if (step === 2) data.selectedCategory = form.selectedCategory;
-    if (step === 3) data.description = form.description;
-    if (step === 4) { data.city = form.city; data.state = form.state; }
-    await saveProgress(step, data);
-    if (step === TOTAL) {
-      try {
-        setSaving(true);
-        await providerService.completeWizard({
-          category_id: form.selectedCategory,
-          description: form.description,
-          city: form.city,
-          state: form.state,
-        });
-        setDone(true);
-      } catch (err: any) { setError(err.response?.data?.error || 'Erro ao finalizar.'); }
-      finally { setSaving(false); }
-    } else { setStep(s => s + 1); setError(''); }
+  const next = async () => { const v = val(step); if (v) { setErr(v); return; }
+    await save(step, { name: f.name, phone: f.phone, ...(step === 2 ? { selectedCategories: f.sel } : {}), ...(step === 3 ? { description: f.desc, experienceYears: f.exp } : {}), ...(step === 4 ? { serviceRadius: f.rad, address: f.addr, city: f.city, state: f.state } : {}) } as any);
+    if (step === T) { setSaving(true); try { await providerService.completeWizard({ categories: f.sel, description: f.desc, experience_years: Number(f.exp) || 0, service_radius_km: Number(f.rad) || 10, address: f.addr, city: f.city, state: f.state }); setDone(true); } catch (e: any) { setErr(e.response?.data?.error || 'Erro ao finalizar.'); } finally { setSaving(false); } } else { setStep(s => s + 1); setErr(''); }
   };
+  const back = async () => { if (step === 1) return; try { await save(step, {}); } catch {} setStep(s => s - 1); setErr(''); };
+  const tc = (id: string) => setF(p => ({ ...p, sel: p.sel.includes(id) ? p.sel.filter(c => c !== id) : [...p.sel, id] }));
 
-  const handleBack = async () => {
-    if (step === 1) return;
-    try { await saveProgress(step, {}); } catch {}
-    setStep(s => s - 1); setError('');
-  };
+  if (al || load) return <C m="Carregando..." />;
+  if (done) return <C m={<><span style={{ fontSize: 48 }}>🎉</span><h2>Cadastro Concluído!</h2><p style={{ color: '#16a34a' }}>Seu perfil já está ativo.</p><button onClick={() => nav('/dashboard')} style={b.primary}>Ir para Dashboard</button></>} />;
 
-  if (authLoading || loading) return <Centered msg="Carregando..." />;
-  if (done) return <Centered msg={<>
-    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
-    <h2>Cadastro Concluído!</h2>
-    <p style={{ color: '#16a34a' }}>Seu perfil já está ativo e visível nas buscas.</p>
-    <button onClick={() => navigate('/dashboard')} style={s.primaryBtn}>Ir para Dashboard</button>
-  </>} />;
-
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', fontFamily: 'system-ui, sans-serif' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', backgroundColor: '#1a1a2e', color: '#fff' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, margin: 0, cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>IworkG</h1>
-        <span style={{ fontSize: '14px', opacity: 0.8 }}>Cadastro de Prestador</span>
-      </header>
-      <main style={{ maxWidth: '700px', margin: '24px auto', padding: '0 16px' }}>
-        <ProgressBar currentStep={step} totalSteps={TOTAL} labels={LABELS} />
-        {error && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#dc2626', fontSize: '14px', marginBottom: '16px' }}><span>{error}</span><button onClick={() => setError('')} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '18px', cursor: 'pointer' }}>×</button></div>}
-        <div style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-          {step === 1 && <Step1 form={form} setForm={setForm} />}
-          {step === 2 && <Step2 form={form} wizard={wizard} setForm={setForm} />}
-          {step === 3 && <Step3 form={form} setForm={setForm} />}
-          {step === 4 && <Step4 form={form} setForm={setForm} />}
-          {step === 5 && <Step5 form={form} wizard={wizard} />}
-          <div style={{ display: 'flex', marginTop: '32px', gap: '12px', borderTop: '1px solid #f3f4f6', paddingTop: '24px' }}>
-            {step > 1 && <button onClick={handleBack} disabled={saving} style={s.secondaryBtn}>← Voltar</button>}
-            <div style={{ flex: 1 }} />
-            <button onClick={handleNext} disabled={saving} style={s.primaryBtn}>
-              {saving ? 'Salvando...' : step === TOTAL ? 'Finalizar' : 'Próximo →'}
-            </button>
-          </div>
+  return <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'system-ui, sans-serif' }}>
+    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', background: '#1a1a2e', color: '#fff' }}><h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, cursor: 'pointer' }} onClick={() => nav('/dashboard')}>IworkG</h1><span style={{ fontSize: 14, opacity: .8 }}>Cadastro de Prestador</span></header>
+    <main style={{ maxWidth: 700, margin: '24px auto', padding: '0 16px' }}>
+      <ProgressBar currentStep={step} totalSteps={T} labels={LABELS} />
+      {err && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, color: '#dc2626', fontSize: 14, marginBottom: 16 }}><span>{err}</span><button onClick={() => setErr('')} style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: 18, cursor: 'pointer' }}>×</button></div>}
+      <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
+        {step === 1 && <S1 f={f} s={setF} />}
+        {step === 2 && <S2 f={f} w={wiz} tc={tc} />}
+        {step === 3 && <S3 f={f} s={setF} />}
+        {step === 4 && <S4 f={f} s={setF} />}
+        {step === 5 && <S5 />}
+        {step === 6 && <S6 f={f} w={wiz} />}
+        <div style={{ display: 'flex', marginTop: 32, gap: 12, borderTop: '1px solid #f3f4f6', paddingTop: 24 }}>
+          {step > 1 && <button onClick={back} disabled={saving} style={b.secondary}>← Voltar</button>}
+          <div style={{ flex: 1 }} />
+          <button onClick={next} disabled={saving} style={b.primary}>{saving ? 'Salvando...' : step === T ? 'Finalizar' : 'Próximo →'}</button>
         </div>
-      </main>
-    </div>
-  );
-}
-
-function Centered({ msg }: { msg: any }) {
-  return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5', fontFamily: 'system-ui, sans-serif', textAlign: 'center' }}>
-    <div style={{ backgroundColor: '#fff', padding: '48px', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>{msg}</div>
+      </div>
+    </main>
   </div>;
 }
+function C({ m }: { m: any }) { return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', fontFamily: 'system-ui, sans-serif', textAlign: 'center' }}><div style={{ background: '#fff', padding: 48, borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>{m}</div></div>; }
+function ST({ n, t, d }: { n: number; t: string; d: string }) { return <><h3 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Etapa {n}: {t}</h3><p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px' }}>{d}</p></>; }
+const li: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, fontWeight: 500, color: '#374151' };
+const ii: React.CSSProperties = { padding: '10px 14px', fontSize: 15, border: '1px solid #d1d5db', borderRadius: 8, fontFamily: 'inherit' };
+const b: Record<string, React.CSSProperties> = { primary: { padding: '12px 28px', fontSize: 15, fontWeight: 600, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }, secondary: { padding: '12px 20px', fontSize: 15, fontWeight: 500, background: 'transparent', color: '#374151', border: '1px solid #d1d5db', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' } };
 
-function StepTitle({ n, title, desc }: { n: number; title: string; desc: string }) {
-  return <><h3 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 8px' }}>Etapa {n}: {title}</h3><p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 24px' }}>{desc}</p></>;
-}
-
-function Step1({ form, setForm }: { form: Form; setForm: (f: Partial<Form>) => void }) {
-  return <div>
-    <StepTitle n={1} title="Dados Básicos" desc="Confirme seus dados de contato." />
-    <label style={l}><span>Nome *</span><input style={i} value={form.name} onChange={e => setForm({ name: e.target.value })} placeholder="Seu nome completo" /></label>
-    <label style={{ ...l, marginTop: '16px' }}><span>Telefone *</span><input style={i} type="tel" value={form.phone} onChange={e => setForm({ phone: e.target.value })} placeholder="(11) 99999-9999" /></label>
-  </div>;
-}
-
-function Step2({ form, wizard, setForm }: { form: Form; wizard: WizardState | null; setForm: (f: Partial<Form>) => void }) {
-  return <div>
-    <StepTitle n={2} title="Categoria" desc="Selecione a categoria principal em que você atua." />
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-      {(wizard?.categories || []).map((cat: Category) => {
-        const sel = form.selectedCategory === cat.id;
-        return <button key={cat.id} onClick={() => setForm({ selectedCategory: sel ? '' : cat.id })} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', border: `2px solid ${sel ? '#2563eb' : '#e5e7eb'}`, borderRadius: '12px', backgroundColor: sel ? '#eff6ff' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 500, fontFamily: 'inherit', boxShadow: sel ? '0 0 0 1px #2563eb' : undefined }}><span style={{ fontSize: '20px' }}>{cat.icon}</span>{cat.name}</button>;
-      })}
-    </div>
-  </div>;
-}
-
-function Step3({ form, setForm }: { form: Form; setForm: (f: Partial<Form>) => void }) {
-  return <div>
-    <StepTitle n={3} title="Descrição" desc="Conte sobre sua experiência e serviços." />
-    <label style={l}><span>Descrição *</span><textarea style={{ ...i, resize: 'vertical', minHeight: '100px' }} rows={5} value={form.description} onChange={e => setForm({ description: e.target.value })} placeholder="Ex: Eletricista com 10 anos de experiência..." maxLength={500} /></label>
-    <span style={{ fontSize: '12px', color: form.description.length >= 500 ? '#dc2626' : form.description.length > 450 ? '#f59e0b' : '#9ca3af', textAlign: 'right', display: 'block' }}>{form.description.length}/500</span>
-  </div>;
-}
-
-function Step4({ form, setForm }: { form: Form; setForm: (f: Partial<Form>) => void }) {
-  return <div>
-    <StepTitle n={4} title="Localização" desc="Sua cidade e estado de atuação." />
-    <div style={{ display: 'flex', gap: '12px' }}>
-      <label style={{ ...l, flex: 1 }}><span>Cidade *</span><input style={i} value={form.city} onChange={e => setForm({ city: e.target.value })} placeholder="Sua cidade" /></label>
-      <label style={{ ...l, flex: 1 }}><span>Estado *</span><input style={i} value={form.state} onChange={e => setForm({ state: e.target.value })} maxLength={2} placeholder="UF" /></label>
-    </div>
-  </div>;
-}
-
-function Step5({ form, wizard }: { form: Form; wizard: WizardState | null }) {
-  const cat = wizard?.categories.find(c => c.id === form.selectedCategory);
-  return <div><StepTitle n={5} title="Revisão" desc="Revise antes de finalizar." />
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      {[
-        ['Nome', form.name],
-        ['Telefone', form.phone],
-        ['Categoria', cat ? `${cat.icon} ${cat.name}` : '—'],
-        ['Descrição', form.description],
-        ['Localização', `${form.city || '—'}, ${form.state || '—'}`],
-      ].map(([label, value]) => (
-        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}>
-          <span style={{ fontSize: '14px', color: '#6b7280' }}>{label}</span>
-          <span style={{ fontSize: '14px', color: '#111827', fontWeight: 500, textAlign: 'right', maxWidth: '60%' }}>{value || '—'}</span>
-        </div>
-      ))}
-    </div>
-  </div>;
-}
-
-const l: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' };
-const i: React.CSSProperties = { padding: '10px 14px', fontSize: '15px', border: '1px solid #d1d5db', borderRadius: '8px', fontFamily: 'inherit' };
-const s: Record<string, React.CSSProperties> = {
-  primaryBtn: { padding: '12px 28px', fontSize: '15px', fontWeight: 600, backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit' },
-  secondaryBtn: { padding: '12px 20px', fontSize: '15px', fontWeight: 500, backgroundColor: 'transparent', color: '#374151', border: '1px solid #d1d5db', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit' },
-};
+function S1({ f, s }: { f: F; s: any }) { return <div><ST n={1} t="Dados Básicos" d="Confirme seus dados." /><label style={li}><span>Nome *</span><input style={ii} value={f.name} onChange={e => s({ name: e.target.value })} /></label><label style={{ ...li, marginTop: 16 }}><span>Telefone *</span><input style={ii} type="tel" value={f.phone} onChange={e => s({ phone: e.target.value })} /></label></div>; }
+function S2({ f, w, tc }: { f: F; w: WizardState | null; tc: (id: string) => void }) { return <div><ST n={2} t="Categorias" d="Selecione as categorias." /><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>{(w?.categories || []).map((c: Category) => { const sel = f.sel.includes(c.id); return <button key={c.id} onClick={() => tc(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12, border: `2px solid ${sel ? '#2563eb' : '#e5e7eb'}`, borderRadius: 12, background: sel ? '#eff6ff' : '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 500, fontFamily: 'inherit', boxShadow: sel ? '0 0 0 1px #2563eb' : undefined }}><span style={{ fontSize: 20 }}>{c.icon}</span>{c.name}</button>; })}</div>{f.sel.length > 0 && <p style={{ marginTop: 12, fontSize: 13, color: '#2563eb', fontWeight: 500 }}>{f.sel.length} selecionada(s)</p>}</div>; }
+function S3({ f, s }: { f: F; s: any }) { return <div><ST n={3} t="Descrição" d="Conte sobre sua experiência." /><label style={li}><span>Descrição *</span><textarea style={{ ...ii, resize: 'vertical', minHeight: 100 }} rows={5} value={f.desc} onChange={e => s({ desc: e.target.value })} maxLength={500} /></label><span style={{ fontSize: 12, color: '#9ca3af', textAlign: 'right', display: 'block' }}>{f.desc.length}/500</span><label style={{ ...li, marginTop: 16 }}><span>Anos de experiência</span><input style={ii} type="number" value={f.exp} onChange={e => s({ exp: e.target.value })} min={0} max={60} /></label></div>; }
+function S4({ f, s }: { f: F; s: any }) { return <div><ST n={4} t="Localização" d="Endereço e raio de atendimento." /><label style={li}><span>Raio (km) *</span><input style={ii} type="number" value={f.rad} onChange={e => s({ rad: e.target.value })} min={1} max={500} /></label><label style={{ ...li, marginTop: 16 }}><span>Endereço *</span><input style={ii} value={f.addr} onChange={e => s({ addr: e.target.value })} /></label><div style={{ display: 'flex', gap: 12, marginTop: 16 }}><label style={{ ...li, flex: 1 }}><span>Cidade *</span><input style={ii} value={f.city} onChange={e => s({ city: e.target.value })} /></label><label style={{ ...li, flex: 1 }}><span>Estado *</span><input style={ii} value={f.state} onChange={e => s({ state: e.target.value })} maxLength={2} /></label></div></div>; }
+function S5() { return <div><ST n={5} t="Verificação" d="Opcional no MVP — em breve." /><div style={{ border: '2px dashed #d1d5db', borderRadius: 12, padding: 40, textAlign: 'center', background: '#f9fafb' }}><span style={{ fontSize: 40 }}>📁</span><p style={{ color: '#6b7280', fontSize: 14 }}>Upload de documento disponível em breve.</p></div></div>; }
+function S6({ f, w }: { f: F; w: WizardState | null }) { const cats = f.sel.map(id => w?.categories.find(c => c.id === id)?.name).filter(Boolean).join(', '); return <div><ST n={6} t="Revisão" d="Revise antes de finalizar." /><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[['Nome', f.name], ['Telefone', f.phone], ['Categorias', cats], ['Descrição', f.desc], ['Experiência', `${f.exp || '0'} anos`], ['Raio', `${f.rad} km`], ['Endereço', `${f.addr}, ${f.city} - ${f.state}`]].map(([l, v]) => <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ fontSize: 14, color: '#6b7280' }}>{l}</span><span style={{ fontSize: 14, color: '#111827', fontWeight: 500, textAlign: 'right', maxWidth: '60%' }}>{v || '—'}</span></div>)}</div></div>; }
