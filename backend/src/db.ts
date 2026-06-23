@@ -363,7 +363,7 @@ try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km REAL NOT NULL DEFAULT 10"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN contact_count INTEGER DEFAULT 0"); } catch {}
-try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'medium'"); } catch {}
 try { db.exec("ALTER TABLE service_requests ADD COLUMN photo_url TEXT"); } catch {}
 try { db.exec("ALTER TABLE service_requests ADD COLUMN address TEXT"); } catch {}
 try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
