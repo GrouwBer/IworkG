@@ -37,9 +37,24 @@ export interface ProviderRow {
   longitude: number | null;
   city: string | null;
   state: string | null;
+  experience_years: number;
+  service_radius_km: number;
+  address: string;
   active: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface PortfolioPhotoRow {
+  id: string;
+  provider_id: string;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  tag: string;
+  sort_order: number;
+  created_at: string;
 }
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'iworkg.db');
@@ -144,6 +159,9 @@ db.exec(`
     city TEXT,
     state TEXT,
     active INTEGER NOT NULL DEFAULT 1,
+    experience_years INTEGER NOT NULL DEFAULT 0,
+    service_radius_km REAL NOT NULL DEFAULT 10,
+    address TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -222,11 +240,37 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  -- Provider categories (many-to-many, issue #5)
+  CREATE TABLE IF NOT EXISTS provider_categories (
+    provider_id TEXT NOT NULL,
+    category_id TEXT NOT NULL,
+    PRIMARY KEY (provider_id, category_id),
+    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+  );
+
+  -- Portfolio photos (issue #6)
+  CREATE TABLE IF NOT EXISTS portfolio_photos (
+    id TEXT PRIMARY KEY,
+    provider_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    tag TEXT NOT NULL DEFAULT 'Geral',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Migrations (safe ALTER TABLE for existing databases) ──
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER NOT NULL DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km REAL NOT NULL DEFAULT 10"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
@@ -344,30 +388,7 @@ function buildSearchWhere(filters: SearchFilters): { whereClause: string; params
   return { whereClause, params };
 }
 
-/** Count total providers matching search filters (for pagination). */
-export function countProviders(filters: SearchFilters = {}): number {
-  const { category_id, query } = filters;
-  const params: any[] = [];
-  let where = '';
 
-  if (category_id) {
-    where += ' AND pp.category_id = ?';
-    params.push(category_id);
-  }
-  if (query) {
-    where += ' AND (u.name LIKE ? OR pp.description LIKE ?)';
-    const like = `%${query}%`;
-    params.push(like, like);
-  }
-
-  const row = db.prepare(`
-    SELECT COUNT(*) as total
-    FROM provider_profiles pp
-    JOIN users u ON u.id = pp.user_id
-    WHERE pp.active = 1${where}
-  `).get(...params) as { total: number };
-  return row.total;
-}
 
 // ═══════════════════════════════════════════
 // PROVIDER PROFILES
@@ -382,18 +403,89 @@ export function createProviderProfile(userId: string, data: {
   description: string;
   city: string;
   state: string;
+  experience_years?: number;
+  service_radius_km?: number;
+  address?: string;
   latitude?: number;
   longitude?: number;
 }): string {
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO provider_profiles (id, user_id, category_id, description, rating, review_count, city, state, latitude, longitude, active)
-    VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, 1)
+    INSERT INTO provider_profiles (id, user_id, category_id, description, rating, review_count, city, state, experience_years, service_radius_km, address, latitude, longitude, active)
+    VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 1)
   `).run(id, userId, data.category_id, data.description, data.city, data.state,
+    data.experience_years || 0, data.service_radius_km || 10, data.address || '',
     data.latitude || null, data.longitude || null);
   // Promote user to provider role
   db.prepare("UPDATE users SET role = 'provider', updated_at = datetime('now') WHERE id = ?").run(userId);
   return id;
+}
+
+// ═══════════════════════════════════════════
+// PROVIDER CATEGORIES (many-to-many)
+// ═══════════════════════════════════════════
+
+export function setProviderCategories(providerId: string, categoryIds: string[]) {
+  const del = db.prepare('DELETE FROM provider_categories WHERE provider_id = ?');
+  const ins = db.prepare('INSERT OR IGNORE INTO provider_categories (provider_id, category_id) VALUES (?, ?)');
+  const tx = db.transaction(() => {
+    del.run(providerId);
+    for (const catId of categoryIds) ins.run(providerId, catId);
+  });
+  tx();
+}
+
+export function getProviderCategories(providerId: string) {
+  return db.prepare(`
+    SELECT c.id, c.name, c.slug, c.icon
+    FROM provider_categories pc
+    JOIN categories c ON c.id = pc.category_id
+    WHERE pc.provider_id = ?
+    ORDER BY c.name
+  `).all(providerId);
+}
+
+// ═══════════════════════════════════════════
+// PORTFOLIO PHOTOS (issue #6)
+// ═══════════════════════════════════════════
+
+export function addPortfolioPhoto(providerId: string, data: {
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size_bytes: number;
+  tag: string;
+}): PortfolioPhotoRow | undefined {
+  const id = uuidv4();
+  const maxOrder = db.prepare(
+    'SELECT COALESCE(MAX(sort_order), -1) + 1 as next_order FROM portfolio_photos WHERE provider_id = ?'
+  ).get(providerId) as { next_order: number };
+  db.prepare(`
+    INSERT INTO portfolio_photos (id, provider_id, filename, original_name, mime_type, size_bytes, tag, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, providerId, data.filename, data.original_name, data.mime_type, data.size_bytes, data.tag, maxOrder.next_order);
+  return getPortfolioPhoto(id);
+}
+
+export function getPortfolioPhotos(providerId: string): PortfolioPhotoRow[] {
+  return db.prepare(
+    'SELECT * FROM portfolio_photos WHERE provider_id = ? ORDER BY sort_order ASC, created_at DESC'
+  ).all(providerId) as PortfolioPhotoRow[];
+}
+
+export function getPortfolioPhoto(photoId: string): PortfolioPhotoRow | undefined {
+  return db.prepare('SELECT * FROM portfolio_photos WHERE id = ?').get(photoId) as PortfolioPhotoRow | undefined;
+}
+
+export function deletePortfolioPhoto(photoId: string) {
+  db.prepare('DELETE FROM portfolio_photos WHERE id = ?').run(photoId);
+}
+
+export function countPortfolioPhotos(providerId: string): number {
+  const row = db.prepare(
+    'SELECT COUNT(*) as total FROM portfolio_photos WHERE provider_id = ?'
+  ).get(providerId) as { total: number };
+  return row.total;
 }
 
 // ═══════════════════════════════════════════

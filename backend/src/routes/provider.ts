@@ -22,8 +22,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 *
 router.get('/wizard', (req: Request, res: Response) => {
   const userId = req.user!.id;
   const user = db.prepare('SELECT name, phone, email FROM users WHERE id = ?').get(userId) as any;
-  let wizard = getWizardState(userId);
-  if (!wizard) wizard = createWizardState(userId);
+  const wizard = getWizardState(userId) ?? createWizardState(userId);
+  if (!wizard) { res.status(500).json({ error: 'Erro ao carregar wizard.' }); return; }
   res.json({
     currentStep: wizard.current_step,
     stepData: JSON.parse(wizard.step_data || '{}'),
@@ -39,6 +39,7 @@ router.put('/wizard', (req: Request, res: Response) => {
   let wizard = getWizardState(userId);
   if (!wizard) wizard = createWizardState(userId);
   const updated = updateWizardState(userId, step, data);
+  if (!updated) { res.status(500).json({ error: 'Erro ao atualizar wizard.' }); return; }
   res.json({ currentStep: updated.current_step, stepData: JSON.parse(updated.step_data), message: 'Progresso salvo.' });
 });
 
@@ -60,6 +61,7 @@ router.post('/wizard/complete', (req: Request, res: Response) => {
     setProviderCategories(providerId, categories);
     deleteWizardState(userId);
     const profile = getProviderProfile(userId);
+    if (!profile) { res.status(500).json({ error: 'Erro ao carregar perfil após cadastro.' }); return; }
     res.status(201).json({
       message: 'Cadastro concluído! Seu perfil já está visível nas buscas.',
       profile: { id: profile.id, description: profile.description, experienceYears: profile.experience_years || 0, serviceRadiusKm: profile.service_radius_km || 10, address: profile.address || '', city: profile.city, state: profile.state, active: !!profile.active, categories: getProviderCategories(providerId) },
@@ -97,6 +99,7 @@ router.post('/portfolio/upload', upload.single('photo'), async (req: Request, re
   try {
     const result = await processAndSaveImage(req.file.buffer, req.file.originalname, profile.id);
     const photo = addPortfolioPhoto(profile.id, { filename: result.filename, original_name: result.originalName, mime_type: result.mimeType, size_bytes: result.sizeBytes, tag });
+    if (!photo) { res.status(500).json({ error: 'Erro ao salvar foto.' }); return; }
     res.status(201).json({ id: photo.id, tag: photo.tag, mimeType: photo.mime_type, sizeBytes: photo.size_bytes, originalName: photo.original_name, url: `/uploads/portfolio/${photo.filename}`, createdAt: photo.created_at, sortOrder: photo.sort_order });
   } catch (err: any) { res.status(400).json({ error: err.message || 'Erro ao processar imagem.' }); }
 });
