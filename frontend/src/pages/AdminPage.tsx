@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { adminService } from '../services/admin';
@@ -18,9 +18,11 @@ export default function AdminPage() {
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
 
   // Redirect if not admin
-  if (user && user.role !== 'admin') {
-    navigate('/buscar', { replace: true });
-  }
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      navigate('/buscar', { replace: true });
+    }
+  }, [user, navigate]);
 
   const loadData = () => {
     setLoading(true);

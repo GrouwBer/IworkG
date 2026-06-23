@@ -46,9 +46,9 @@ function App() {
           <Route path="/mural" element={<ProtectedRoute><RequestBoardPage /></ProtectedRoute>} />
 
           {/* Admin routes */}
-          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
-          <Route path="/admin/categorias" element={<ProtectedRoute><AdminCategoriesPage /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboardPage /></ProtectedRoute>} />
+          <Route path="/admin/categorias" element={<ProtectedRoute requiredRole="admin"><AdminCategoriesPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminPage /></ProtectedRoute>} />
 
           {/* Help & Legal */}
           <Route path="/ajuda" element={<HelpPage />} />

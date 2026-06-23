@@ -33,11 +33,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       id: payload.sub,
       role: payload.role,
       jti: payload.jti,
+      banned: payload.banned,
     };
 
-    // Check if user is banned (issue #19)
-    const userRow = db.prepare('SELECT banned FROM users WHERE id = ?').get(req.user.id) as any;
-    if (userRow?.banned) {
+    // Check if user is banned (issue #19) — from JWT payload for performance
+    if (payload.banned) {
       res.status(403).json({ error: 'Conta suspensa. Entre em contato com o suporte.' });
       return;
     }

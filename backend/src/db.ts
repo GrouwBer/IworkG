@@ -646,15 +646,9 @@ export function softDeleteCategory(id: string): { success: boolean; reason?: str
     'SELECT COUNT(*) as cnt FROM provider_profiles WHERE category_id = ?'
   ).get(id) as any).cnt;
 
-  if (linkedProviders > 0) {
-    // Soft delete: mark as deleted
-    db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ?").run(id);
-    return { success: true, reason: `Categoria inativada (${linkedProviders} prestadores vinculados).` };
-  }
-
-  // No linked providers — hard delete
-  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-  return { success: true };
+  // Always soft delete to preserve referential integrity (W3 review fix)
+  db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(id);
+  return { success: true, reason: linkedProviders > 0 ? `Categoria inativada (${linkedProviders} prestadores vinculados).` : 'Categoria inativada.' };
 }
 
 export interface AdminStats {
