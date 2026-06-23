@@ -14,6 +14,7 @@ import ProviderRegisterPage from './pages/ProviderRegisterPage';
 import ProviderProfilePage from './pages/ProviderProfilePage';
 import ProviderEditPage from './pages/ProviderEditPage';
 import MyProviderPage from './pages/MyProviderPage';
+import RequestBoardPage from './pages/RequestBoardPage';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           <Route path="/prestador/:id" element={<ProviderProfilePage />} />
           <Route path="/prestador/editar" element={<ProtectedRoute><ProviderEditPage /></ProtectedRoute>} />
           <Route path="/prestador/meu-perfil" element={<ProtectedRoute><MyProviderPage /></ProtectedRoute>} />
+          <Route path="/mural" element={<ProtectedRoute><RequestBoardPage /></ProtectedRoute>} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/buscar" replace />} />
