@@ -62,7 +62,7 @@ router.post('/wizard/complete', (req: Request, res: Response) => {
     const profile = getProviderProfile(userId);
     res.status(201).json({
       message: 'Cadastro concluído! Seu perfil já está visível nas buscas.',
-      profile: { id: profile.id, description: profile.description, experienceYears: 0, serviceRadiusKm: 10, address: '', city: profile.city, state: profile.state, active: !!profile.active, categories: getProviderCategories(providerId) },
+      profile: { id: profile.id, description: profile.description, experienceYears: profile.experience_years || 0, serviceRadiusKm: profile.service_radius_km || 10, address: profile.address || '', city: profile.city, state: profile.state, active: !!profile.active, categories: getProviderCategories(providerId) },
     });
   } catch (err: any) { res.status(500).json({ error: 'Erro ao finalizar cadastro.' }); }
 });
