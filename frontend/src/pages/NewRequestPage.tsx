@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { searchService, type Category } from '../services/search';
 import { requestService } from '../services/requests';
-import { getCachedLocation, cacheLocation, lookupCep } from '../services/location';
+import { getCachedLocation as _getCachedLocation, cacheLocation, lookupCep } from '../services/location';
 
 export default function NewRequestPage() {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState<Category[]>([]);
