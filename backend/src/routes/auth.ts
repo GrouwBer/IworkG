@@ -7,20 +7,6 @@ import { generateTokens, refreshAccessToken, blacklistToken, revokeAllUserTokens
 import { generateOTP, verifyOTP } from '../services/otp';
 import { requireAuth } from '../middleware/auth';
 import type { User } from '../types';
-import rateLimit from 'express-rate-limit';
-
-// Rate limiters
-const otpLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5,
-  message: { error: 'Muitas tentativas. Aguarde um minuto.' },
-});
-
-const googleAuthLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: { error: 'Muitas tentativas de login. Aguarde um minuto.' },
-});
 
 const router = Router();
 
@@ -35,17 +21,12 @@ const googleClient = new OAuth2Client(
 // POST /api/auth/google — Google OAuth login
 // Body: { credential: string } (Google ID token from frontend)
 // ──────────────────────────────────────────────
-router.post('/google', googleAuthLimiter, async (req: Request, res: Response) => {
+router.post('/google', async (req: Request, res: Response) => {
   try {
     const { credential } = req.body;
 
     if (!credential) {
       res.status(400).json({ error: 'Credencial Google não fornecida.' });
-      return;
-    }
-
-    if (typeof credential !== 'string' || credential.length > 2048) {
-      res.status(400).json({ error: 'Credencial inválida.' });
       return;
     }
 
@@ -73,7 +54,7 @@ router.post('/google', googleAuthLimiter, async (req: Request, res: Response) =>
       // Check if email already exists (link accounts)
       const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
       if (existingByEmail) {
-        db.prepare(`UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`)
+        db.prepare('UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run(googleId, avatarUrl, existingByEmail.id);
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
       } else {
@@ -154,7 +135,7 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     if (!user) {
       const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
       if (existingByEmail) {
-        db.prepare(`UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`)
+        db.prepare('UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime(\'now\') WHERE id = ?')
           .run(googleId, avatarUrl, existingByEmail.id);
         user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
       } else {
@@ -180,16 +161,11 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────────
 // POST /api/auth/otp/send — Send OTP to phone
 // ──────────────────────────────────────────────
-router.post('/otp/send', otpLimiter, (req: Request, res: Response) => {
+router.post('/otp/send', (req: Request, res: Response) => {
   const { phone } = req.body;
 
   if (!phone) {
     res.status(400).json({ error: 'Número de telefone não fornecido.' });
-    return;
-  }
-
-  if (typeof phone !== 'string' || phone.length > 20) {
-    res.status(400).json({ error: 'Número de telefone inválido.' });
     return;
   }
 
@@ -213,21 +189,11 @@ router.post('/otp/send', otpLimiter, (req: Request, res: Response) => {
 // ──────────────────────────────────────────────
 // POST /api/auth/otp/verify — Verify OTP and login
 // ──────────────────────────────────────────────
-router.post('/otp/verify', otpLimiter, (req: Request, res: Response) => {
+router.post('/otp/verify', (req: Request, res: Response) => {
   const { phone, code } = req.body;
 
   if (!phone || !code) {
     res.status(400).json({ error: 'Telefone e código são obrigatórios.' });
-    return;
-  }
-
-  if (typeof phone !== 'string' || phone.length > 20) {
-    res.status(400).json({ error: 'Telefone inválido.' });
-    return;
-  }
-
-  if (typeof code !== 'string' || code.length > 10) {
-    res.status(400).json({ error: 'Código inválido.' });
     return;
   }
 
