@@ -19,8 +19,8 @@ export default function ReviewSection({ providerId }: Props) {
   const [showReport, setShowReport] = useState(false);
   const [toast, setToast] = useState('');
 
-  const load = () => providerService.getReviews(providerId).then(setReviews).catch(()=>{}).finally(()=>setLoading(false));
-  useEffect(load, [providerId]);
+  const load = () => { providerService.getReviews(providerId).then(setReviews).catch(()=>{}).finally(()=>setLoading(false)); };
+  useEffect(() => { load(); }, [providerId]);
 
   const handleSubmit = async () => {
     if (rating < 1) { setError('Selecione uma nota.'); return; }

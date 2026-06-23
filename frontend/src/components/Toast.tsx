@@ -97,3 +97,5 @@ export function ToastContainer() {
     </div>
   );
 }
+
+export default ToastContainer;

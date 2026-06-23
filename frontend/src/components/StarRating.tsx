@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 
 interface StarRatingProps {
   rating: number;      // 0.0 — 5.0
