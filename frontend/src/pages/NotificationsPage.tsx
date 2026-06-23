@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { notificationService, type NotificationItem } from '../services/notifications';
 
 const TYPE_ICONS: Record<string, string> = {
@@ -11,7 +10,6 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);

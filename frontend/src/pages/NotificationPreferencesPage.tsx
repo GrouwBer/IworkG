@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { notificationService, type NotificationPreferences } from '../services/notifications';
 
 const TOGGLES: { key: keyof NotificationPreferences; label: string; desc: string; icon: string }[] = [
