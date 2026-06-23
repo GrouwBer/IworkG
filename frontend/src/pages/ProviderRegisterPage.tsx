@@ -18,6 +18,7 @@ export default function ProviderRegisterPage() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [f, setF] = useState<F>({ name: '', phone: '', sel: [], desc: '', exp: '', rad: '10', addr: '', city: '', state: '' });
 
   useEffect(() => { if (al) return; if (!isAuthenticated) { nav('/login'); return; }
@@ -36,7 +37,9 @@ export default function ProviderRegisterPage() {
     if (s === 4) { if (!f.addr.trim()) return 'Endereço obrigatório.'; if (!f.city.trim() || !f.state.trim()) return 'Cidade/estado obrigatórios.'; if (Number(f.rad) < 1) return 'Raio mínimo 1 km.'; }
     return null;
   };
-  const next = async () => { const v = val(step); if (v) { setErr(v); return; }
+  const next = async () => {
+    const v = step === T ? (!acceptedTerms ? 'Você precisa aceitar os Termos de Uso e a Política de Privacidade para finalizar.' : null) : val(step);
+    if (v) { setErr(v); return; }
     await save(step, { name: f.name, phone: f.phone, ...(step === 2 ? { selectedCategories: f.sel } : {}), ...(step === 3 ? { description: f.desc, experienceYears: f.exp } : {}), ...(step === 4 ? { serviceRadius: f.rad, address: f.addr, city: f.city, state: f.state } : {}) } as any);
     if (step === T) { setSaving(true); try { await providerService.completeWizard({ categories: f.sel, description: f.desc, experience_years: Number(f.exp) || 0, service_radius_km: Number(f.rad) || 10, address: f.addr, city: f.city, state: f.state }); setDone(true); } catch (e: any) { setErr(e.response?.data?.error || 'Erro ao finalizar.'); } finally { setSaving(false); } } else { setStep(s => s + 1); setErr(''); }
   };
@@ -57,7 +60,7 @@ export default function ProviderRegisterPage() {
         {step === 3 && <S3 f={f} s={setF} />}
         {step === 4 && <S4 f={f} s={setF} />}
         {step === 5 && <S5 />}
-        {step === 6 && <S6 f={f} w={wiz} />}
+        {step === 6 && <S6 f={f} w={wiz} acceptedTerms={acceptedTerms} setAcceptedTerms={setAcceptedTerms} />}
         <div style={{ display: 'flex', marginTop: 32, gap: 12, borderTop: '1px solid #f3f4f6', paddingTop: 24 }}>
           {step > 1 && <button onClick={back} disabled={saving} style={b.secondary}>← Voltar</button>}
           <div style={{ flex: 1 }} />
@@ -78,4 +81,22 @@ function S2({ f, w, tc }: { f: F; w: WizardState | null; tc: (id: string) => voi
 function S3({ f, s }: { f: F; s: any }) { return <div><ST n={3} t="Descrição" d="Conte sobre sua experiência." /><label style={li}><span>Descrição *</span><textarea style={{ ...ii, resize: 'vertical', minHeight: 100 }} rows={5} value={f.desc} onChange={e => s({ desc: e.target.value })} maxLength={500} /></label><span style={{ fontSize: 12, color: '#9ca3af', textAlign: 'right', display: 'block' }}>{f.desc.length}/500</span><label style={{ ...li, marginTop: 16 }}><span>Anos de experiência</span><input style={ii} type="number" value={f.exp} onChange={e => s({ exp: e.target.value })} min={0} max={60} /></label></div>; }
 function S4({ f, s }: { f: F; s: any }) { return <div><ST n={4} t="Localização" d="Endereço e raio de atendimento." /><label style={li}><span>Raio (km) *</span><input style={ii} type="number" value={f.rad} onChange={e => s({ rad: e.target.value })} min={1} max={500} /></label><label style={{ ...li, marginTop: 16 }}><span>Endereço *</span><input style={ii} value={f.addr} onChange={e => s({ addr: e.target.value })} /></label><div style={{ display: 'flex', gap: 12, marginTop: 16 }}><label style={{ ...li, flex: 1 }}><span>Cidade *</span><input style={ii} value={f.city} onChange={e => s({ city: e.target.value })} /></label><label style={{ ...li, flex: 1 }}><span>Estado *</span><input style={ii} value={f.state} onChange={e => s({ state: e.target.value })} maxLength={2} /></label></div></div>; }
 function S5() { return <div><ST n={5} t="Verificação" d="Opcional no MVP — em breve." /><div style={{ border: '2px dashed #d1d5db', borderRadius: 12, padding: 40, textAlign: 'center', background: '#f9fafb' }}><span style={{ fontSize: 40 }}>📁</span><p style={{ color: '#6b7280', fontSize: 14 }}>Upload de documento disponível em breve.</p></div></div>; }
-function S6({ f, w }: { f: F; w: WizardState | null }) { const cats = f.sel.map(id => w?.categories.find(c => c.id === id)?.name).filter(Boolean).join(', '); return <div><ST n={6} t="Revisão" d="Revise antes de finalizar." /><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[['Nome', f.name], ['Telefone', f.phone], ['Categorias', cats], ['Descrição', f.desc], ['Experiência', `${f.exp || '0'} anos`], ['Raio', `${f.rad} km`], ['Endereço', `${f.addr}, ${f.city} - ${f.state}`]].map(([l, v]) => <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ fontSize: 14, color: '#6b7280' }}>{l}</span><span style={{ fontSize: 14, color: '#111827', fontWeight: 500, textAlign: 'right', maxWidth: '60%' }}>{v || '—'}</span></div>)}</div></div>; }
+function S6({ f, w, acceptedTerms, setAcceptedTerms }: { f: F; w: WizardState | null; acceptedTerms: boolean; setAcceptedTerms: (v: boolean) => void }) { const cats = f.sel.map(id => w?.categories.find(c => c.id === id)?.name).filter(Boolean).join(', '); return <div><ST n={6} t="Revisão" d="Revise antes de finalizar." /><div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[['Nome', f.name], ['Telefone', f.phone], ['Categorias', cats], ['Descrição', f.desc], ['Experiência', `${f.exp || '0'} anos`], ['Raio', `${f.rad} km`], ['Endereço', `${f.addr}, ${f.city} - ${f.state}`]].map(([l, v]) => <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f3f4f6' }}><span style={{ fontSize: 14, color: '#6b7280' }}>{l}</span><span style={{ fontSize: 14, color: '#111827', fontWeight: 500, textAlign: 'right', maxWidth: '60%' }}>{v || '—'}</span></div>)}
+        <div style={{ marginTop: 16, padding: '16px 0', borderTop: '1px solid #e5e7eb' }}>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 14, color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={e => setAcceptedTerms(e.target.checked)}
+              style={{ marginTop: 2, width: 18, height: 18, cursor: 'pointer' }}
+            />
+            <span>
+              Li e aceito os{' '}
+              <a href="/termos" target="_blank" style={{ color: '#2563eb', textDecoration: 'underline' }}>Termos de Uso</a>
+              {' '}e a{' '}
+              <a href="/privacidade" target="_blank" style={{ color: '#2563eb', textDecoration: 'underline' }}>Política de Privacidade</a>
+              {' '}da plataforma.
+            </span>
+          </label>
+        </div>
+      </div></div>; }

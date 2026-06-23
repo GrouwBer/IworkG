@@ -19,6 +19,32 @@ export default function ProviderProfilePage() {
 
   const isOwner = user && profile && user.id === profile.id;
 
+  const handleShare = async () => {
+    const shareUrl = `https://iwork.app/provider/${id}`;
+    const shareData = {
+      title: `${profile?.name} — IworkG`,
+      text: `Confira o perfil de ${profile?.name} no IworkG!`,
+      url: shareUrl,
+    };
+    try {
+      if (navigator.share && window.innerWidth <= 768) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('🔗 Link copiado para a área de transferência!');
+      }
+    } catch (err) {
+      // User cancelled share or clipboard failed — fallback
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('🔗 Link copiado para a área de transferência!');
+      } catch {
+        // Last resort
+        prompt('Copie o link abaixo:', shareUrl);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -117,6 +143,9 @@ export default function ProviderProfilePage() {
             </button>
             <button style={styles.favBtn}>
               ♡ Favoritar
+            </button>
+            <button onClick={handleShare} style={styles.shareBtn}>
+              📤 Compartilhar
             </button>
           </div>
         </div>
@@ -296,6 +325,16 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#fff',
     color: '#dc2626',
     border: '2px solid #fecaca',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  shareBtn: {
+    padding: '12px 28px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#f0fdf4',
+    color: '#16a34a',
+    border: '2px solid #bbf7d0',
     borderRadius: '10px',
     cursor: 'pointer',
   },
