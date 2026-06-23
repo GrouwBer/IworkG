@@ -1,6 +1,46 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+
+// ── Row type interfaces ──
+
+export interface UserRow {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  google_id: string | null;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WizardRow {
+  id: string;
+  user_id: string;
+  current_step: number;
+  step_data: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderRow {
+  id: string;
+  user_id: string;
+  category_id: string;
+  description: string | null;
+  rating: number;
+  review_count: number;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  state: string | null;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'iworkg.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -142,6 +182,17 @@ db.exec(`
     FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  -- Provider wizard state (temporary, issue #5)
+  CREATE TABLE IF NOT EXISTS provider_wizard_state (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    current_step INTEGER NOT NULL DEFAULT 1,
+    step_data TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Seed categories ──
@@ -232,6 +283,88 @@ export function searchProviders(filters: SearchFilters = {}) {
   params.push(limit, offset);
 
   return db.prepare(sql).all(...params);
+}
+
+/** Count total providers matching search filters (for pagination). */
+export function countProviders(filters: SearchFilters = {}): number {
+  const { category_id, query } = filters;
+  const params: any[] = [];
+  let where = '';
+
+  if (category_id) {
+    where += ' AND pp.category_id = ?';
+    params.push(category_id);
+  }
+  if (query) {
+    where += ' AND (u.name LIKE ? OR pp.description LIKE ?)';
+    const like = `%${query}%`;
+    params.push(like, like);
+  }
+
+  const row = db.prepare(`
+    SELECT COUNT(*) as total
+    FROM provider_profiles pp
+    JOIN users u ON u.id = pp.user_id
+    WHERE pp.active = 1${where}
+  `).get(...params) as { total: number };
+  return row.total;
+}
+
+// ═══════════════════════════════════════════
+// PROVIDER PROFILES
+// ═══════════════════════════════════════════
+
+export function getProviderProfile(userId: string): ProviderRow | undefined {
+  return db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(userId) as ProviderRow | undefined;
+}
+
+export function createProviderProfile(userId: string, data: {
+  category_id: string;
+  description: string;
+  city: string;
+  state: string;
+  latitude?: number;
+  longitude?: number;
+}): string {
+  const id = uuidv4();
+  db.prepare(`
+    INSERT INTO provider_profiles (id, user_id, category_id, description, rating, review_count, city, state, latitude, longitude, active)
+    VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, 1)
+  `).run(id, userId, data.category_id, data.description, data.city, data.state,
+    data.latitude || null, data.longitude || null);
+  // Promote user to provider role
+  db.prepare("UPDATE users SET role = 'provider', updated_at = datetime('now') WHERE id = ?").run(userId);
+  return id;
+}
+
+// ═══════════════════════════════════════════
+// PROVIDER WIZARD (issue #5)
+// ═══════════════════════════════════════════
+
+export function getWizardState(userId: string): WizardRow | undefined {
+  return db.prepare('SELECT * FROM provider_wizard_state WHERE user_id = ?').get(userId) as WizardRow | undefined;
+}
+
+export function createWizardState(userId: string): WizardRow | undefined {
+  const id = uuidv4();
+  db.prepare(
+    'INSERT INTO provider_wizard_state (id, user_id, current_step, step_data) VALUES (?, ?, 1, ?)'
+  ).run(id, userId, JSON.stringify({}));
+  return getWizardState(userId);
+}
+
+export function updateWizardState(userId: string, step: number, data: Record<string, any>): WizardRow | null {
+  const existing = getWizardState(userId);
+  if (!existing) return null;
+  const merged = { ...JSON.parse(existing.step_data), ...data };
+  db.prepare(
+    "UPDATE provider_wizard_state SET current_step = ?, step_data = ?, updated_at = datetime('now') WHERE user_id = ?"
+  ).run(step, JSON.stringify(merged), userId);
+  return getWizardState(userId) ?? null;
+}
+
+export function deleteWizardState(userId: string) {
+  db.prepare('DELETE FROM provider_wizard_state WHERE user_id = ?').run(userId);
 }
 
 export default db;
