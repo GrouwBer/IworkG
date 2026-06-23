@@ -14,29 +14,20 @@ export interface Provider {
   description: string | null;
   rating: number;
   reviewCount: number;
-  experienceYears: number;
-  serviceRadiusKm: number;
   latitude: number | null;
   longitude: number | null;
   city: string | null;
   state: string | null;
-  distanceKm?: number;
-  score?: number;
+  active: boolean;
   category: Category;
 }
 
 export interface SearchResponse {
   results: Provider[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-  };
   filters: {
     category_id: string | null;
     lat: number | null;
     lng: number | null;
-    radius_km: number | null;
   };
 }
 
@@ -50,7 +41,6 @@ export const searchService = {
     category_id?: string;
     lat?: number;
     lng?: number;
-    radius_km?: number;
     query?: string;
     limit?: number;
     offset?: number;
