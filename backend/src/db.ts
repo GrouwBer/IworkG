@@ -227,6 +227,8 @@ db.exec(`
 // ── Migrations (safe ALTER TABLE for existing databases) ──
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
+try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
@@ -424,6 +426,146 @@ export function updateWizardState(userId: string, step: number, data: Record<str
 
 export function deleteWizardState(userId: string) {
   db.prepare('DELETE FROM provider_wizard_state WHERE user_id = ?').run(userId);
+}
+
+// ═══════════════════════════════════════════
+// ADMIN — Category CRUD + Dashboard (issue #20)
+// ═══════════════════════════════════════════
+
+export interface CategoryRow {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  deleted_at: string | null;
+  provider_count?: number;
+}
+
+export function getCategoriesWithProviderCount(): CategoryRow[] {
+  return db.prepare(`
+    SELECT c.id, c.name, c.slug, c.icon, c.deleted_at,
+      (SELECT COUNT(*) FROM provider_profiles pp WHERE pp.category_id = c.id) as provider_count
+    FROM categories c
+    WHERE c.deleted_at IS NULL
+    ORDER BY c.name
+  `).all() as CategoryRow[];
+}
+
+export function createCategory(name: string, slug: string, icon: string): CategoryRow {
+  const id = `cat-${slug}`;
+  db.prepare(
+    'INSERT INTO categories (id, name, slug, icon) VALUES (?, ?, ?, ?)'
+  ).run(id, name, slug, icon);
+  return db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as CategoryRow;
+}
+
+export function updateCategory(id: string, data: { name?: string; slug?: string; icon?: string }): CategoryRow | null {
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as CategoryRow | undefined;
+  if (!existing) return null;
+
+  const name = data.name || existing.name;
+  const slug = data.slug || existing.slug;
+  const icon = data.icon || existing.icon;
+
+  db.prepare('UPDATE categories SET name = ?, slug = ?, icon = ? WHERE id = ?')
+    .run(name, slug, icon, id);
+  return db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as CategoryRow;
+}
+
+export function softDeleteCategory(id: string): { success: boolean; reason?: string } {
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as CategoryRow | undefined;
+  if (!existing) return { success: false, reason: 'Categoria não encontrada.' };
+
+  const linkedProviders = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM provider_profiles WHERE category_id = ?'
+  ).get(id) as any).cnt;
+
+  if (linkedProviders > 0) {
+    // Soft delete: mark as deleted
+    db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ?").run(id);
+    return { success: true, reason: `Categoria inativada (${linkedProviders} prestadores vinculados).` };
+  }
+
+  // No linked providers — hard delete
+  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  return { success: true };
+}
+
+export interface AdminStats {
+  totalClients: number;
+  totalProviders: number;
+  totalRequests: number;
+  totalContacts: number;
+  contactsByDay: { date: string; count: number }[];
+  topCategories: { name: string; icon: string; count: number }[];
+  conversionRate: { total: number; withInterest: number; rate: number };
+}
+
+export function getAdminStats(periodDays: number = 30): AdminStats {
+  const since = new Date();
+  since.setDate(since.getDate() - periodDays);
+  const sinceISO = since.toISOString();
+
+  const totalClients = (db.prepare(
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'client' AND deleted_at IS NULL"
+  ).get() as any).cnt;
+
+  const totalProviders = (db.prepare(
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'provider' AND deleted_at IS NULL"
+  ).get() as any).cnt;
+
+  const totalRequests = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM service_requests'
+  ).get() as any).cnt;
+
+  const totalContacts = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM contact_history'
+  ).get() as any).cnt;
+
+  const contactsByDay = db.prepare(`
+    SELECT DATE(created_at) as date, COUNT(*) as count
+    FROM contact_history
+    WHERE created_at >= ?
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `).all(sinceISO) as { date: string; count: number }[];
+
+  const topCategories = db.prepare(`
+    SELECT c.name, c.icon, COUNT(sr.id) as count
+    FROM service_requests sr
+    JOIN categories c ON c.id = sr.category_id
+    WHERE sr.created_at >= ?
+    GROUP BY c.name
+    ORDER BY count DESC
+    LIMIT 5
+  `).all(sinceISO) as { name: string; icon: string; count: number }[];
+
+  const totalRequestsPeriod = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM service_requests WHERE created_at >= ?'
+  ).get(sinceISO) as any).cnt;
+
+  const requestsWithInterest = (db.prepare(`
+    SELECT COUNT(DISTINCT sr.id) as cnt
+    FROM service_requests sr
+    JOIN interests i ON i.request_id = sr.id
+    WHERE sr.created_at >= ?
+  `).get(sinceISO) as any).cnt;
+
+  const conversionRate = {
+    total: totalRequestsPeriod,
+    withInterest: requestsWithInterest,
+    rate: totalRequestsPeriod > 0 ? Math.round((requestsWithInterest / totalRequestsPeriod) * 100) : 0,
+  };
+
+  return {
+    totalClients,
+    totalProviders,
+    totalRequests,
+    totalContacts,
+    contactsByDay,
+    topCategories,
+    conversionRate,
+  };
 }
 
 export default db;
