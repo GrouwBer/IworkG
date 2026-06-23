@@ -9,6 +9,7 @@ import favoritesRoutes from './routes/favorites';
 import contactsRoutes from './routes/contacts';
 import providerWizardRoutes from './routes/provider';
 import providerProfileRoutes from './routes/providers';
+import adminRoutes from './routes/admin';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/provider', providerWizardRoutes);
 app.use('/api/providers', providerProfileRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Rota não encontrada.' });

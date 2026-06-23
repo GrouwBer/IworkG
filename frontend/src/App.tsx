@@ -17,6 +17,9 @@ import MyProviderPage from './pages/MyProviderPage';
 import HelpPage from './pages/HelpPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import RequestBoardPage from './pages/RequestBoardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminCategoriesPage from './pages/AdminCategoriesPage';
 
 function App() {
   return (
@@ -39,6 +42,11 @@ function App() {
           <Route path="/prestador/:id" element={<ProviderProfilePage />} />
           <Route path="/prestador/editar" element={<ProtectedRoute><ProviderEditPage /></ProtectedRoute>} />
           <Route path="/prestador/meu-perfil" element={<ProtectedRoute><MyProviderPage /></ProtectedRoute>} />
+          <Route path="/mural" element={<ProtectedRoute><RequestBoardPage /></ProtectedRoute>} />
+
+          {/* Admin routes */}
+          <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
+          <Route path="/admin/categorias" element={<ProtectedRoute><AdminCategoriesPage /></ProtectedRoute>} />
 
           {/* Help & Legal */}
           <Route path="/ajuda" element={<HelpPage />} />

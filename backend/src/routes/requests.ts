@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import db from '../db';
+import db, { searchOpenRequests } from '../db';
 import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -134,6 +134,67 @@ router.get('/:id/interests', requireAuth, (req: Request, res: Response) => {
       },
     })),
   });
+});
+
+/**
+ * GET /api/requests/open — Provider view: list open service requests (issue #14)
+ * Query: ?lat=X&lng=Y&radius=Z&category=X&page=X&limit=X
+ */
+router.get('/open', requireAuth, requireRole('provider'), (req: Request, res: Response) => {
+  const { lat, lng, radius, category, page, limit } = req.query;
+
+  const filters: any = {};
+
+  if (lat && typeof lat === 'string') filters.lat = parseFloat(lat);
+  if (lng && typeof lng === 'string') filters.lng = parseFloat(lng);
+  if (radius && typeof radius === 'string') filters.radius_km = parseInt(radius, 10);
+  if (category && typeof category === 'string') filters.category_id = category;
+  if (limit && typeof limit === 'string') filters.limit = Math.min(parseInt(limit, 10) || 20, 50);
+  if (page && typeof page === 'string') {
+    const p = Math.max(parseInt(page, 10) || 1, 1);
+    filters.offset = (p - 1) * (filters.limit || 20);
+  }
+
+  try {
+    const results = searchOpenRequests(filters);
+
+    res.json({
+      results: results.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        urgency: row.urgency || 'Media',
+        status: row.status,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        city: row.city,
+        state: row.state,
+        createdAt: row.created_at,
+        interestCount: row.interest_count,
+        client: {
+          id: row.client_id,
+          name: row.client_name,
+          avatarUrl: row.client_avatar,
+        },
+        category: row.category_name ? {
+          name: row.category_name,
+          slug: row.category_slug,
+          icon: row.category_icon,
+        } : null,
+      })),
+      filters: {
+        lat: filters.lat || null,
+        lng: filters.lng || null,
+        radius_km: filters.radius_km || null,
+        category_id: filters.category_id || null,
+        page: page ? parseInt(page as string, 10) : 1,
+        limit: filters.limit || 20,
+      },
+    });
+  } catch (err) {
+    console.error('Open requests error:', err);
+    res.status(500).json({ error: 'Erro ao buscar pedidos abertos.' });
+  }
 });
 
 export default router;
