@@ -38,7 +38,13 @@ const typeIcons: Record<ToastType, string> = {
  * Toast — Design System (NF001)
  * Notificação temporária. Renderize <ToastContainer /> no App.
  */
-export function ToastContainer() {
+export function ToastContainer({ message, type: _type, visible: _visible, onClose: _onClose }: {
+  message?: string;
+  type?: string;
+  visible?: boolean;
+  onClose?: () => void;
+}) {
+
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const add = useCallback((message: string, type: ToastType) => {

@@ -15,7 +15,7 @@ export default function ReviewSection({ providerId }: Props) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [_success, setSuccess] = useState('');
   const [showReport, setShowReport] = useState(false);
   const [toast, setToast] = useState('');
 
