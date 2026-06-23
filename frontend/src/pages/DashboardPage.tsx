@@ -35,6 +35,15 @@ export default function DashboardPage() {
           {user?.phone && <>Telefone: {user.phone}</>}
         </p>
 
+        {user?.role === 'client' && (
+          <div style={styles.ctaBox}>
+            <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Quer trabalhar na plataforma?</p>
+            <button onClick={() => navigate('/register/provider')} style={styles.ctaBtn}>
+              🛠️ Tornar-se Prestador
+            </button>
+          </div>
+        )}
+
         <div style={styles.placeholder}>
           <p>🚧 As demais funcionalidades serão implementadas nas próximas issues.</p>
           <p>Sprint 1 — Fundação: Autenticação (✓) | Filtros (#9) | Busca geográfica</p>
@@ -85,6 +94,25 @@ const styles: Record<string, React.CSSProperties> = {
   },
   role: { fontSize: '16px', color: '#555' },
   info: { fontSize: '14px', color: '#777', marginBottom: '32px' },
+  ctaBox: {
+    padding: '20px',
+    backgroundColor: '#eff6ff',
+    borderRadius: '12px',
+    border: '2px solid #bfdbfe',
+    marginBottom: '20px',
+    textAlign: 'center' as const,
+  },
+  ctaBtn: {
+    padding: '12px 32px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
   placeholder: {
     padding: '24px',
     backgroundColor: '#f0f9ff',
