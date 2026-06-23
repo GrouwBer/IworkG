@@ -151,6 +151,11 @@ db.exec(`
   );
 `);
 
+// Migrations: columns added post-initial-schema (safe ALTER TABLE)
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km INTEGER DEFAULT 15"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT"); } catch {}
+
 // ── Service Requests (issue #15) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS service_requests (
@@ -228,7 +233,6 @@ db.exec(`
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
 try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
-try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
@@ -429,6 +433,67 @@ export function deleteWizardState(userId: string) {
 }
 
 // ═══════════════════════════════════════════
+// SERVICE REQUESTS — Open search (issue #14)
+// ═══════════════════════════════════════════
+
+export interface OpenRequestFilters {
+  lat?: number;
+  lng?: number;
+  radius_km?: number;
+  category_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export function searchOpenRequests(filters: OpenRequestFilters = {}) {
+  const { lat, lng, radius_km, category_id, limit = 20, offset = 0 } = filters;
+  const params: any[] = [];
+  let where = " WHERE sr.status = 'open'";
+
+  if (category_id) {
+    where += ' AND sr.category_id = ?';
+    params.push(category_id);
+  }
+
+  let orderBy: string;
+  const orderParams: any[] = [];
+
+  if (lat !== undefined && lng !== undefined) {
+    orderBy = ` ORDER BY
+      CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,
+      ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) ASC`;
+    orderParams.push(lat, lat, lng, lng);
+
+    // Apply radius filter (W2): squared Euclidean distance <= radius_km^2
+    if (radius_km !== undefined && radius_km > 0) {
+      const maxDegSq = (radius_km / 111) * (radius_km / 111);
+      where += ` AND ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) <= ?`;
+      params.push(lat, lat, lng, lng, maxDegSq);
+    }
+  } else {
+    orderBy = ` ORDER BY
+      CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,
+      sr.created_at DESC`;
+  }
+
+  const sql = `
+    SELECT
+      sr.id, sr.title, sr.description, sr.urgency, sr.status,
+      sr.latitude, sr.longitude, sr.city, sr.state, sr.created_at,
+      u.id as client_id, u.name as client_name, u.avatar_url as client_avatar,
+      c.name as category_name, c.slug as category_slug, c.icon as category_icon,
+      (SELECT COUNT(*) FROM interests i WHERE i.request_id = sr.id) as interest_count
+    FROM service_requests sr
+    JOIN users u ON u.id = sr.client_id
+    LEFT JOIN categories c ON c.id = sr.category_id
+    ${where}
+    ${orderBy}
+    LIMIT ? OFFSET ?`;
+
+  params.push(...orderParams, limit, offset);
+  return db.prepare(sql).all(...params);
+}
+
 // ADMIN — Category CRUD + Dashboard (issue #20)
 // ═══════════════════════════════════════════
 
@@ -563,5 +628,4 @@ export function getAdminStats(periodDays: number = 30): AdminStats {
     conversionRate,
   };
 }
-
 export default db;
