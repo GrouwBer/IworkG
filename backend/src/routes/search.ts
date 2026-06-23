@@ -62,6 +62,7 @@ router.get('/providers/search', (req: Request, res: Response) => {
         longitude: row.longitude,
         city: row.city,
         state: row.state,
+        active: row.active === 1,
         category: {
           name: row.category_name,
           slug: row.category_slug,

@@ -3,10 +3,6 @@ import cors from 'cors';
 import { config } from './config';
 import authRoutes from './routes/auth';
 import searchRoutes from './routes/search';
-import requestRoutes from './routes/requests';
-import notificationRoutes from './routes/notifications';
-import favoritesRoutes from './routes/favorites';
-import contactsRoutes from './routes/contacts';
 import providerRoutes from './routes/providers';
 
 const app = express();
@@ -26,10 +22,6 @@ app.get('/api/health', (_req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', searchRoutes);
-app.use('/api/requests', requestRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/favorites', favoritesRoutes);
-app.use('/api/contacts', contactsRoutes);
 app.use('/api', providerRoutes);
 
 // 404 handler

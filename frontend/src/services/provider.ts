@@ -12,18 +12,12 @@ export interface ProviderProfile {
   city: string | null;
   state: string | null;
   active: boolean;
-  raioAtuacaoKm: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface StatusResponse {
   active: boolean;
-  message: string;
-}
-
-export interface RaioResponse {
-  raioAtuacaoKm: number;
   message: string;
 }
 
@@ -43,12 +37,6 @@ export const providerService = {
   /** Define o status de disponibilidade diretamente */
   async setStatus(active: boolean): Promise<StatusResponse> {
     const { data } = await api.patch<StatusResponse>('/api/providers/me/status', { active });
-    return data;
-  },
-
-  /** Atualiza o raio de atuação (RF021) */
-  async setRaioAtuacao(raioKm: number): Promise<RaioResponse> {
-    const { data } = await api.patch<RaioResponse>('/api/providers/me/raio-atuacao', { raio_km: raioKm });
     return data;
   },
 };

@@ -18,6 +18,7 @@ export interface Provider {
   longitude: number | null;
   city: string | null;
   state: string | null;
+  active: boolean;
   category: Category;
 }
 

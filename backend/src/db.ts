@@ -75,83 +75,10 @@ db.exec(`
     city TEXT,
     state TEXT,
     active INTEGER NOT NULL DEFAULT 1,
-    raio_atuacao_km INTEGER NOT NULL DEFAULT 15,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
-  );
-`);
-
-// ── Migration: add raio_atuacao_km if column doesn't exist ──
-const hasRaioColumn = db.prepare(
-  "SELECT COUNT(*) as cnt FROM pragma_table_info('provider_profiles') WHERE name = 'raio_atuacao_km'"
-).get() as { cnt: number };
-
-if (!hasRaioColumn.cnt) {
-  db.exec(`ALTER TABLE provider_profiles ADD COLUMN raio_atuacao_km INTEGER DEFAULT 15`);
-  db.exec(`UPDATE provider_profiles SET raio_atuacao_km = 15 WHERE raio_atuacao_km IS NULL`);
-}
-
-// ── Service Requests (issue #15) ──
-db.exec(`
-  CREATE TABLE IF NOT EXISTS service_requests (
-    id TEXT PRIMARY KEY,
-    client_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    category_id TEXT,
-    city TEXT,
-    state TEXT,
-    latitude REAL,
-    longitude REAL,
-    status TEXT NOT NULL DEFAULT 'open',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS interests (
-    id TEXT PRIMARY KEY,
-    request_id TEXT NOT NULL,
-    provider_id TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(request_id, provider_id),
-    FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS notifications (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    type TEXT NOT NULL,
-    title TEXT NOT NULL,
-    body TEXT,
-    data TEXT,
-    read INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS contact_history (
-    id TEXT PRIMARY KEY,
-    client_id TEXT NOT NULL,
-    provider_id TEXT NOT NULL,
-    contact_type TEXT NOT NULL DEFAULT 'direct',
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS favorites (
-    id TEXT PRIMARY KEY,
-    client_id TEXT NOT NULL,
-    provider_id TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(client_id, provider_id),
-    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
 
@@ -208,7 +135,7 @@ export function searchProviders(filters: SearchFilters = {}) {
     SELECT 
       u.id, u.name, u.avatar_url, u.phone,
       pp.description, pp.rating, pp.review_count,
-      pp.latitude, pp.longitude, pp.city, pp.state,
+      pp.latitude, pp.longitude, pp.city, pp.state, pp.active,
       c.name as category_name, c.slug as category_slug, c.icon as category_icon
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
@@ -258,7 +185,6 @@ export interface ProviderProfile {
   city: string | null;
   state: string | null;
   active: number;
-  raio_atuacao_km: number;
   created_at: string;
   updated_at: string;
 }
@@ -267,18 +193,6 @@ export function getProviderProfileByUserId(userId: string): ProviderProfile | un
   return db.prepare(
     'SELECT * FROM provider_profiles WHERE user_id = ?'
   ).get(userId) as ProviderProfile | undefined;
-}
-
-// ── Helper: update provider raio de atuação ──
-export function updateProviderRaioAtuacao(userId: string, raioKm: number): ProviderProfile | null {
-  const validValues = [5, 10, 15, 20, 30, 50];
-  if (!validValues.includes(raioKm)) return null;
-
-  db.prepare(
-    'UPDATE provider_profiles SET raio_atuacao_km = ?, updated_at = datetime(\'now\') WHERE user_id = ?'
-  ).run(raioKm, userId);
-
-  return getProviderProfileByUserId(userId) || null;
 }
 
 // ── Helper: toggle provider active status ──
