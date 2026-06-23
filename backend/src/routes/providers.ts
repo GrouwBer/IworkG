@@ -116,7 +116,7 @@ router.get('/:id', (req: Request, res: Response) => {
 
   const provider = db.prepare(`
     SELECT
-      u.id as user_id, u.name, u.avatar_url,
+      u.id as user_id, u.name, u.avatar_url, u.phone,
       pp.id as profile_id, pp.description, pp.rating, pp.review_count,
       pp.latitude, pp.longitude, pp.city, pp.state,
       pp.active,
@@ -145,6 +145,7 @@ router.get('/:id', (req: Request, res: Response) => {
     id: provider.user_id,
     profileId: provider.profile_id,
     name: provider.name,
+    phone: provider.phone,
     avatarUrl: provider.avatar_url,
     description: provider.description,
     rating: provider.rating,
