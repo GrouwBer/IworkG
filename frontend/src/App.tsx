@@ -9,12 +9,9 @@ import SearchPage from './pages/SearchPage';
 import RequestDetailPage from './pages/RequestDetailPage';
 import ContactsPage from './pages/ContactsPage';
 import FavoritesPage from './pages/FavoritesPage';
-<<<<<<< HEAD
 import ProviderRegisterPage from './pages/ProviderRegisterPage';
-=======
 import ProviderProfilePage from './pages/ProviderProfilePage';
 import ProviderEditPage from './pages/ProviderEditPage';
->>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
 
 function App() {
   return (

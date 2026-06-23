@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useEffect, useState, useCallback } from 'react';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -60,36 +59,10 @@ export function ToastContainer() {
   };
 
   if (toasts.length === 0) return null;
-=======
-import { useEffect } from 'react';
-
-interface ToastProps {
-  message: string;
-  type: 'success' | 'error' | 'info';
-  visible: boolean;
-  onClose: () => void;
-}
-
-export default function Toast({ message, type, visible, onClose }: ToastProps) {
-  useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(onClose, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [visible, onClose]);
-
-  if (!visible) return null;
-
-  const bgColor =
-    type === 'success' ? '#16a34a' :
-    type === 'error' ? '#dc2626' :
-    '#2563eb';
->>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
 
   return (
     <div style={{
       position: 'fixed',
-<<<<<<< HEAD
       bottom: 'var(--space-6)',
       right: 'var(--space-6)',
       zIndex: 2000,
@@ -121,22 +94,6 @@ export default function Toast({ message, type, visible, onClose }: ToastProps) {
           {toast.message}
         </div>
       ))}
-=======
-      top: '24px',
-      right: '24px',
-      backgroundColor: bgColor,
-      color: '#fff',
-      padding: '14px 24px',
-      borderRadius: '10px',
-      fontSize: '14px',
-      fontWeight: 500,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-      zIndex: 9999,
-      animation: 'slideIn 0.3s ease',
-      maxWidth: '400px',
-    }}>
-      {message}
->>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
     </div>
   );
 }

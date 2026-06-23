@@ -1,88 +1,48 @@
 import { Router, Request, Response } from 'express';
-<<<<<<< HEAD
-import { requireAuth, requireRole } from '../middleware/auth';
-import db, { getProviderProfileByUserId, toggleProviderStatus } from '../db';
-
-const router = Router();
-
-/**
- * GET /api/providers/me
- * Retorna o perfil do prestador logado, incluindo status de disponibilidade.
- */
-router.get('/providers/me', requireAuth, requireRole('provider'), (req: Request, res: Response) => {
-  const profile = getProviderProfileByUserId(req.user!.id);
-
-  if (!profile) {
-    res.status(404).json({ error: 'Perfil de prestador não encontrado.' });
-    return;
-  }
-
-  res.json({
-    id: profile.id,
-    userId: profile.user_id,
-    categoryId: profile.category_id,
-    description: profile.description,
-    rating: profile.rating,
-    reviewCount: profile.review_count,
-    latitude: profile.latitude,
-    longitude: profile.longitude,
-    city: profile.city,
-    state: profile.state,
-    active: profile.active === 1,
-    createdAt: profile.created_at,
-    updatedAt: profile.updated_at,
-  });
-});
-
-/**
- * PATCH /api/providers/me/status
- * Alterna o status de disponibilidade do prestador (Disponível ↔ Ocupado).
- * Body opcional: { active: boolean } — se enviado, define o status diretamente.
- * Sem body, alterna o status atual (toggle).
- */
-router.patch('/providers/me/status', requireAuth, requireRole('provider'), (req: Request, res: Response) => {
-  const profile = getProviderProfileByUserId(req.user!.id);
-
-  if (!profile) {
-    res.status(404).json({ error: 'Perfil de prestador não encontrado.' });
-    return;
-  }
-
-  let newActive: number;
-
-  if (req.body && typeof req.body.active === 'boolean') {
-    // Define diretamente o status informado no body
-    newActive = req.body.active ? 1 : 0;
-    db.prepare(
-      'UPDATE provider_profiles SET active = ?, updated_at = datetime(\'now\') WHERE user_id = ?'
-    ).run(newActive, req.user!.id);
-  } else {
-    // Toggle: alterna o status atual
-    const result = toggleProviderStatus(req.user!.id);
-    if (!result) {
-      res.status(500).json({ error: 'Erro ao alternar status.' });
-      return;
-    }
-    newActive = result.active ? 1 : 0;
-  }
-
-  res.json({
-    active: newActive === 1,
-    message: newActive === 1 ? 'Disponível para serviços' : 'Ocupado',
-  });
-});
-
-=======
 import { v4 as uuidv4 } from 'uuid';
-import db from '../db';
 import { requireAuth } from '../middleware/auth';
+import db from '../db';
 
 const router = Router();
 
-// ──────────────────────────────────────────────
-// GET /api/providers/profile/mine — Own profile (for editing)
-// MUST be defined BEFORE /:id to prevent Express route collision
-// ──────────────────────────────────────────────
+// ═══════════════════════════════════════════
+// Status endpoints
+// ═══════════════════════════════════════════
+
+router.get('/me', requireAuth, (req: Request, res: Response) => {
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.user!.id) as any;
+  if (!profile) {
+    res.status(404).json({ error: 'Perfil de prestador não encontrado.' });
+    return;
+  }
+  res.json({
+    id: profile.id, userId: profile.user_id, categoryId: profile.category_id,
+    description: profile.description, rating: profile.rating, reviewCount: profile.review_count,
+    latitude: profile.latitude, longitude: profile.longitude, city: profile.city, state: profile.state,
+    active: profile.active === 1, createdAt: profile.created_at, updatedAt: profile.updated_at,
+  });
+});
+
+router.patch('/me/status', requireAuth, (req: Request, res: Response) => {
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.user!.id) as any;
+  if (!profile) {
+    res.status(404).json({ error: 'Perfil de prestador não encontrado.' });
+    return;
+  }
+  let newActive: number;
+  if (req.body && typeof req.body.active === 'boolean') {
+    newActive = req.body.active ? 1 : 0;
+  } else {
+    newActive = profile.active === 1 ? 0 : 1;
+  }
+  db.prepare("UPDATE provider_profiles SET active = ?, updated_at = datetime('now') WHERE user_id = ?")
+    .run(newActive, req.user!.id);
+  res.json({ active: newActive === 1, message: newActive === 1 ? 'Disponível para serviços' : 'Ocupado' });
+});
+
+// ═══════════════════════════════════════════
+// Profile & Portfolio endpoints
+// ═══════════════════════════════════════════
 router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
   const userId = req.user!.id;
 
@@ -142,15 +102,15 @@ router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────
-// GET /api/providers/:id — Public profile view
+// GET /api/providers/:id — Public profile view (by profile_id)
 // ──────────────────────────────────────────────
 router.get('/:id', (req: Request, res: Response) => {
   const { id } = req.params;
 
   const provider = db.prepare(`
     SELECT
-      u.id, u.name, u.avatar_url, u.phone, u.email,
-      pp.description, pp.rating, pp.review_count,
+      u.id as user_id, u.name, u.avatar_url,
+      pp.id as profile_id, pp.description, pp.rating, pp.review_count,
       pp.latitude, pp.longitude, pp.city, pp.state,
       pp.active,
       c.id as category_id, c.name as category_name,
@@ -158,7 +118,7 @@ router.get('/:id', (req: Request, res: Response) => {
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
     JOIN categories c ON c.id = pp.category_id
-    WHERE pp.user_id = ? AND pp.active = 1
+    WHERE pp.id = ? AND pp.active = 1
   `).get(id) as any;
 
   if (!provider) {
@@ -170,18 +130,15 @@ router.get('/:id', (req: Request, res: Response) => {
   const portfolio = db.prepare(`
     SELECT id, image_url, caption, sort_order
     FROM provider_portfolio
-    WHERE provider_id = (
-      SELECT id FROM provider_profiles WHERE user_id = ?
-    )
+    WHERE provider_id = ?
     ORDER BY sort_order ASC, created_at DESC
-  `).all(id);
+  `).all(provider.profile_id);
 
   res.json({
-    id: provider.id,
+    id: provider.user_id,
+    profileId: provider.profile_id,
     name: provider.name,
     avatarUrl: provider.avatar_url,
-    phone: provider.phone,
-    email: provider.email,
     description: provider.description,
     rating: provider.rating,
     reviewCount: provider.review_count,
@@ -215,8 +172,14 @@ router.put('/profile', requireAuth, (req: Request, res: Response) => {
     userParams.push(name);
   }
   if (phone !== undefined) {
+    // Validate phone format (W1)
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length < 10 || cleaned.length > 15) {
+      res.status(400).json({ error: 'Número de telefone inválido.' });
+      return;
+    }
     userUpdates.push('phone = ?');
-    userParams.push(phone);
+    userParams.push(cleaned);
   }
 
   if (userUpdates.length > 0) {
@@ -302,6 +265,14 @@ router.post('/portfolio', requireAuth, (req: Request, res: Response) => {
     return;
   }
 
+  // Validate URL format (W2)
+  try {
+    new URL(imageUrl);
+  } catch {
+    res.status(400).json({ error: 'URL da imagem inválida.' });
+    return;
+  }
+
   const profile = db.prepare(
     'SELECT id FROM provider_profiles WHERE user_id = ?'
   ).get(userId) as any;
@@ -351,5 +322,4 @@ router.delete('/portfolio/:id', requireAuth, (req: Request, res: Response) => {
   res.json({ message: 'Imagem removida do portfólio.' });
 });
 
->>>>>>> 113e62c (feat: implementa tela de perfil do prestador - visualização e edição (closes #10))
 export default router;
