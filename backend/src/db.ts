@@ -227,6 +227,7 @@ db.exec(`
 // ── Migrations (safe ALTER TABLE for existing databases) ──
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN contact_count INTEGER DEFAULT 0"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [

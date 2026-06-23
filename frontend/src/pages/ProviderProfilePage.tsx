@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { providerService, type ProviderProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
+import ContactModal from '../components/ContactModal';
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e2e8f0" rx="60"/><text x="60" y="68" text-anchor="middle" font-size="44" fill="#94a3b8">👤</text></svg>'
@@ -15,6 +16,7 @@ export default function ProviderProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   const isOwner = user && profile && user.id === profile.id;
 
@@ -111,7 +113,7 @@ export default function ProviderProfilePage() {
 
           {/* Action Buttons */}
           <div style={styles.actionRow}>
-            <button style={styles.contactBtn}>
+            <button onClick={() => setShowContactModal(true)} style={styles.contactBtn}>
               💬 Entrar em Contato
             </button>
             <button style={styles.favBtn}>
@@ -147,6 +149,15 @@ export default function ProviderProfilePage() {
           <span style={styles.lightboxClose}>✕</span>
         </div>
       )}
+
+      {/* Contact Modal */}
+      <ContactModal
+        open={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        providerId={profile.id}
+        providerName={profile.name}
+        providerPhone={profile.phone}
+      />
     </div>
   );
 }
