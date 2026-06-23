@@ -624,11 +624,15 @@ export function deletePortfolioPhoto(photoId: string) {
   const photo = getPortfolioPhoto(photoId);
   if (!photo) return null;
 
-  // Delete file from disk
+  // Delete file from disk (best-effort — nao interrompe remocao do banco)
   const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'portfolio');
   const filepath = path.join(UPLOAD_DIR, photo.filename);
-  if (fs.existsSync(filepath)) {
-    fs.unlinkSync(filepath);
+  try {
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+  } catch (e) {
+    console.error('Falha ao remover arquivo do disco:', e);
   }
 
   db.prepare('DELETE FROM portfolio_photos WHERE id = ?').run(photoId);
