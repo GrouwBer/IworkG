@@ -16,6 +16,7 @@ export function generateTokens(user: User): AuthTokens {
     role: user.role,
     jti: accessJti,
     type: 'access',
+    banned: user.banned,
   };
 
   const refreshPayload: Omit<TokenPayload, 'iat' | 'exp'> = {
@@ -23,6 +24,7 @@ export function generateTokens(user: User): AuthTokens {
     role: user.role,
     jti: refreshJti,
     type: 'refresh',
+    banned: user.banned,
   };
 
   const accessToken = jwt.sign(accessPayload, config.jwtSecret, {

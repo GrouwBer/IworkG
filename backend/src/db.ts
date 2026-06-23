@@ -279,6 +279,59 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  -- Admin reports (issue #19)
+  CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    reporter_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    resolved_by TEXT,
+    resolution TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at TEXT,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS reviews (
+    id TEXT PRIMARY KEY,
+    reviewer_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    comment TEXT,
+    response TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS bans (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    admin_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    revoked_at TEXT,
+    revoked_by TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_actions (
+    id TEXT PRIMARY KEY,
+    admin_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    justification TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   -- Provider categories (many-to-many, issue #5)
   CREATE TABLE IF NOT EXISTS provider_categories (
     provider_id TEXT NOT NULL,
@@ -314,6 +367,7 @@ try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'med
 try { db.exec("ALTER TABLE service_requests ADD COLUMN photo_url TEXT"); } catch {}
 try { db.exec("ALTER TABLE service_requests ADD COLUMN address TEXT"); } catch {}
 try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
@@ -674,15 +728,9 @@ export function softDeleteCategory(id: string): { success: boolean; reason?: str
     'SELECT COUNT(*) as cnt FROM provider_profiles WHERE category_id = ?'
   ).get(id) as any).cnt;
 
-  if (linkedProviders > 0) {
-    // Soft delete: mark as deleted
-    db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ?").run(id);
-    return { success: true, reason: `Categoria inativada (${linkedProviders} prestadores vinculados).` };
-  }
-
-  // No linked providers — hard delete
-  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
-  return { success: true };
+  // Always soft delete to preserve referential integrity (W3 review fix)
+  db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(id);
+  return { success: true, reason: linkedProviders > 0 ? `Categoria inativada (${linkedProviders} prestadores vinculados).` : 'Categoria inativada.' };
 }
 
 export interface AdminStats {

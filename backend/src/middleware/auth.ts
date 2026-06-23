@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, isTokenBlacklisted } from '../services/token';
+import db from '../db';
 
 /**
  * Middleware: require valid access token.
@@ -32,7 +33,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       id: payload.sub,
       role: payload.role,
       jti: payload.jti,
+      banned: payload.banned,
     };
+
+    // Check if user is banned (issue #19) — from JWT payload for performance
+    if (payload.banned) {
+      res.status(403).json({ error: 'Conta suspensa. Entre em contato com o suporte.' });
+      return;
+    }
 
     next();
   } catch (err: any) {

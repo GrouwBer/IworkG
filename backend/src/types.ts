@@ -6,6 +6,7 @@ export interface User {
   avatar_url: string | null;
   google_id: string | null;
   role: 'client' | 'provider' | 'admin';
+  banned?: number;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +16,7 @@ export interface TokenPayload {
   role: string;
   jti: string;   // unique token id for revocation
   type: 'access' | 'refresh';
+  banned?: number;
 }
 
 export interface AuthTokens {
@@ -45,6 +47,7 @@ declare global {
         id: string;
         role: string;
         jti: string;
+        banned?: number;
       };
     }
   }
