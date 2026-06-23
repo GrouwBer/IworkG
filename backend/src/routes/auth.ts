@@ -6,14 +6,23 @@ import { config } from '../config';
 import { generateTokens, refreshAccessToken, blacklistToken, revokeAllUserTokens } from '../services/token';
 import { generateOTP, verifyOTP } from '../services/otp';
 import { requireAuth } from '../middleware/auth';
-import { rateLimiter } from '../middleware/rateLimit';
 import type { User } from '../types';
+import rateLimit from 'express-rate-limit';
+
+// Rate limiters
+const otpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
+  message: { error: 'Muitas tentativas. Aguarde um minuto.' },
+});
+
+const googleAuthLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Muitas tentativas de login. Aguarde um minuto.' },
+});
 
 const router = Router();
-
-// Rate limiters: OTP send = 3 per minute, OTP verify = 10 per minute
-const otpSendLimiter = rateLimiter(3, 60_000);
-const otpVerifyLimiter = rateLimiter(10, 60_000);
 
 // Google OAuth client
 const googleClient = new OAuth2Client(
@@ -22,38 +31,21 @@ const googleClient = new OAuth2Client(
   config.googleRedirectUri
 );
 
-// ── Helper: upsert user from Google profile ──
-function upsertGoogleUser(googleId: string, email: string, name: string, avatarUrl: string): User {
-  let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
-
-  if (!user) {
-    const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
-    if (existingByEmail) {
-      db.prepare("UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?")
-        .run(googleId, avatarUrl, existingByEmail.id);
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
-    } else {
-      const userId = uuidv4();
-      db.prepare(
-        'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(userId, name, email, googleId, avatarUrl, 'client');
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
-    }
-  }
-
-  return user!;
-}
-
 // ──────────────────────────────────────────────
 // POST /api/auth/google — Google OAuth login
 // Body: { credential: string } (Google ID token from frontend)
 // ──────────────────────────────────────────────
-router.post('/google', async (req: Request, res: Response) => {
+router.post('/google', googleAuthLimiter, async (req: Request, res: Response) => {
   try {
     const { credential } = req.body;
 
     if (!credential) {
       res.status(400).json({ error: 'Credencial Google não fornecida.' });
+      return;
+    }
+
+    if (typeof credential !== 'string' || credential.length > 2048) {
+      res.status(400).json({ error: 'Credencial inválida.' });
       return;
     }
 
@@ -74,9 +66,26 @@ router.post('/google', async (req: Request, res: Response) => {
     const name = payload.name || email.split('@')[0];
     const avatarUrl = payload.picture || '';
 
-    const user = upsertGoogleUser(googleId, email, name, avatarUrl);
+    // Upsert user
+    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
 
-    const tokens = generateTokens(user);
+    if (!user) {
+      // Check if email already exists (link accounts)
+      const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
+      if (existingByEmail) {
+        db.prepare(`UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`)
+          .run(googleId, avatarUrl, existingByEmail.id);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
+      } else {
+        const userId = uuidv4();
+        db.prepare(
+          'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(userId, name, email, googleId, avatarUrl, 'client');
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
+      }
+    }
+
+    const tokens = generateTokens(user!);
 
     res.json({
       user: {
@@ -141,9 +150,23 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const name = payload.name || email.split('@')[0];
     const avatarUrl = payload.picture || '';
 
-    const user = upsertGoogleUser(googleId, email, name, avatarUrl);
+    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
+    if (!user) {
+      const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
+      if (existingByEmail) {
+        db.prepare(`UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?`)
+          .run(googleId, avatarUrl, existingByEmail.id);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
+      } else {
+        const userId = uuidv4();
+        db.prepare(
+          'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(userId, name, email, googleId, avatarUrl, 'client');
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
+      }
+    }
 
-    const authTokens = generateTokens(user);
+    const authTokens = generateTokens(user!);
 
     // Redirect to frontend with tokens in URL hash
     const redirectUrl = `${config.frontendUrl}/auth/callback#accessToken=${authTokens.accessToken}&refreshToken=${authTokens.refreshToken}`;
@@ -157,17 +180,16 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────────
 // POST /api/auth/otp/send — Send OTP to phone
 // ──────────────────────────────────────────────
-router.post('/otp/send', (req: Request, res: Response) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  if (!otpSendLimiter(ip)) {
-    res.status(429).json({ error: 'Muitas solicitações. Aguarde 1 minuto.' });
-    return;
-  }
-
+router.post('/otp/send', otpLimiter, (req: Request, res: Response) => {
   const { phone } = req.body;
 
   if (!phone) {
     res.status(400).json({ error: 'Número de telefone não fornecido.' });
+    return;
+  }
+
+  if (typeof phone !== 'string' || phone.length > 20) {
+    res.status(400).json({ error: 'Número de telefone inválido.' });
     return;
   }
 
@@ -191,17 +213,21 @@ router.post('/otp/send', (req: Request, res: Response) => {
 // ──────────────────────────────────────────────
 // POST /api/auth/otp/verify — Verify OTP and login
 // ──────────────────────────────────────────────
-router.post('/otp/verify', (req: Request, res: Response) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
-  if (!otpVerifyLimiter(ip)) {
-    res.status(429).json({ error: 'Muitas tentativas. Aguarde 1 minuto.' });
-    return;
-  }
-
+router.post('/otp/verify', otpLimiter, (req: Request, res: Response) => {
   const { phone, code } = req.body;
 
   if (!phone || !code) {
     res.status(400).json({ error: 'Telefone e código são obrigatórios.' });
+    return;
+  }
+
+  if (typeof phone !== 'string' || phone.length > 20) {
+    res.status(400).json({ error: 'Telefone inválido.' });
+    return;
+  }
+
+  if (typeof code !== 'string' || code.length > 10) {
+    res.status(400).json({ error: 'Código inválido.' });
     return;
   }
 

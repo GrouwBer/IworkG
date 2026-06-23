@@ -1,9 +1,7 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { searchService, type Category, type Provider } from '../services/search';
-
-const DEFAULT_RADIUS = 20;
 
 export default function SearchPage() {
   const { user } = useAuth();
@@ -13,74 +11,57 @@ export default function SearchPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLng, setUserLng] = useState<number | null>(null);
-  const [radius, setRadius] = useState(DEFAULT_RADIUS);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchError, setSearchError] = useState('');
 
   const selectedCategory = searchParams.get('category_id') || '';
 
+  // Load categories on mount
   useEffect(() => {
-    searchService.getCategories().then(setCategories).catch(console.error);
+    searchService.getCategories().then(setCategories).catch(() => setSearchError('Erro ao carregar categorias.'));
   }, []);
 
+  // Fetch providers when category changes
   useEffect(() => {
+    setLoading(true);
+    setMessage('');
+
+    const filters: { category_id?: string; lat?: number; lng?: number; limit?: number; offset?: number } = { limit: 50 };
+    if (selectedCategory) filters.category_id = selectedCategory;
+
+    // Try to get user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setUserLat(pos.coords.latitude);
-          setUserLng(pos.coords.longitude);
+          filters.lat = pos.coords.latitude;
+          filters.lng = pos.coords.longitude;
+          doSearch(filters);
         },
-        () => { /* silent fail */ },
-        { timeout: 8000, enableHighAccuracy: false }
+        () => doSearch(filters) // Fallback: search without location
       );
+    } else {
+      doSearch(filters);
     }
-  }, []);
+  }, [selectedCategory]);
 
-  const doSearch = useCallback((catId: string, rad: number) => {
-    const filters: any = { limit: 50 };
-    if (catId) filters.category_id = catId;
-    if (userLat != null && userLng != null) {
-      filters.lat = userLat;
-      filters.lng = userLng;
-      filters.radius_km = rad;
-    }
-
-    setLoading(true);
-    setMessage('');
-    setError(null);
-
+  const doSearch = (filters: { category_id?: string; lat?: number; lng?: number; limit?: number; offset?: number }) => {
     searchService.searchProviders(filters)
       .then((data) => {
         setProviders(data.results);
         if (data.results.length === 0) {
-          const cat = categories.find(c => c.id === catId);
+          const cat = categories.find(c => c.id === selectedCategory);
           setMessage(cat
-            ? 'Nenhum ' + cat.name + ' encontrado em um raio de ' + rad + 'km'
+            ? `Nenhum ${cat.name} na sua região`
             : 'Nenhum prestador encontrado.'
           );
         }
       })
-      .catch((err) => {
-        console.error(err);
-        setError('Erro ao conectar com o servidor. Tente novamente.');
-      })
+      .catch(() => setSearchError('Erro ao buscar prestadores.'))
       .finally(() => setLoading(false));
-  }, [userLat, userLng, categories]);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      doSearch(selectedCategory, radius);
-    }, 400);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [selectedCategory, radius, doSearch]);
+  };
 
   const handleCategoryClick = (categoryId: string) => {
     if (categoryId === selectedCategory) {
+      // Deselect
       setSearchParams({});
     } else {
       setSearchParams({ category_id: categoryId });
@@ -93,9 +74,10 @@ export default function SearchPage() {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.logo}>IworkG</h1>
-        <span style={styles.greeting}>Ola, {user?.name?.split(' ')[0]}</span>
+        <span style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</span>
       </header>
 
+      {/* Category chips */}
       <div style={styles.chipsWrapper}>
         <div style={styles.chipsScroll}>
           <button
@@ -123,35 +105,10 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {userLat != null && (
-        <div style={styles.radiusBar}>
-          <span style={styles.radiusLabel}>Raio: {radius} km</span>
-          <input
-            type="range"
-            min={2}
-            max={100}
-            value={radius}
-            onChange={(e) => setRadius(Number(e.target.value))}
-            style={styles.radiusSlider}
-          />
-          <span style={styles.radiusRange}>2 — 100 km</span>
-        </div>
-      )}
-
+      {/* Results */}
       <main style={styles.main}>
         {loading ? (
-          <div style={styles.loadingState}>
-            <span style={styles.skeletonIcon}>🔍</span>
-            <p>Buscando prestadores proximos...</p>
-          </div>
-        ) : error ? (
-          <div style={styles.emptyState}>
-            <span style={styles.emptyIcon}>⚠️</span>
-            <p>{error}</p>
-            <button onClick={() => doSearch(selectedCategory, radius)} style={styles.clearBtn}>
-              Tentar novamente
-            </button>
-          </div>
+          <p style={styles.loading}>Buscando prestadores...</p>
         ) : message ? (
           <div style={styles.emptyState}>
             <span style={styles.emptyIcon}>🔍</span>
@@ -182,35 +139,19 @@ export default function SearchPage() {
                       {p.category.icon} {p.category.name}
                     </span>
                     {p.city && (
-                      <span style={styles.cardLocation}>
-                        📍 {p.city}, {p.state}
-                        {p.distanceKm != null && (
-                          <span style={styles.distance}> · {p.distanceKm} km</span>
-                        )}
-                      </span>
+                      <span style={styles.cardLocation}>📍 {p.city}, {p.state}</span>
                     )}
                   </div>
-                  <div style={styles.ratingCol}>
-                    {p.rating > 0 && (
-                      <div style={styles.rating}>
-                        ⭐ {p.rating.toFixed(1)}
-                        <span style={styles.reviewCount}>({p.reviewCount})</span>
-                      </div>
-                    )}
-                    {p.score != null && (
-                      <div style={styles.score}>
-                        {p.score.toFixed(1)} pts
-                      </div>
-                    )}
-                  </div>
+                  {p.rating > 0 && (
+                    <div style={styles.rating}>
+                      ⭐ {p.rating.toFixed(1)}
+                      <span style={styles.reviewCount}>({p.reviewCount})</span>
+                    </div>
+                  )}
                 </div>
                 {p.description && (
                   <p style={styles.cardDescription}>{p.description}</p>
                 )}
-                <div style={styles.cardMeta}>
-                  <span>🛠️ {p.experienceYears} anos exp.</span>
-                  <span>📏 ate {p.serviceRadiusKm} km</span>
-                </div>
               </div>
             ))}
           </div>
@@ -268,7 +209,6 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
     transition: 'all 0.15s',
     flexShrink: 0,
-    fontFamily: 'inherit',
   },
   chipActive: {
     backgroundColor: '#1a1a2e',
@@ -276,41 +216,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: '#1a1a2e',
   },
   chipIcon: { fontSize: '16px' },
-  radiusBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 24px',
-    backgroundColor: '#f0f9ff',
-    borderBottom: '1px solid #bae6fd',
-  },
-  radiusLabel: {
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#0369a1',
-    minWidth: '80px',
-  },
-  radiusSlider: {
-    flex: 1,
-    accentColor: '#2563eb',
-  },
-  radiusRange: {
-    fontSize: '11px',
-    color: '#6b7280',
-    minWidth: '65px',
-    textAlign: 'right',
-  },
   main: {
     maxWidth: '900px',
     margin: '24px auto',
     padding: '0 24px',
   },
-  loadingState: {
+  loading: {
     textAlign: 'center',
     color: '#888',
     padding: '48px 0',
   },
-  skeletonIcon: { fontSize: '48px', display: 'block', marginBottom: '16px' },
   emptyState: {
     textAlign: 'center',
     padding: '64px 24px',
@@ -326,7 +241,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
-    fontFamily: 'inherit',
   },
   grid: {
     display: 'grid',
@@ -351,23 +265,23 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     overflow: 'hidden',
     flexShrink: 0,
-    backgroundColor: '#e0e0e0',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
   avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0e0e0',
     color: '#666',
     fontSize: '20px',
     fontWeight: 600,
   },
-  cardInfo: { flex: 1, minWidth: 0 },
+  cardInfo: { flex: 1 },
   cardName: { fontSize: '16px', fontWeight: 600, margin: '0 0 4px 0', color: '#1a1a2e' },
   cardCategory: { fontSize: '13px', color: '#666' },
   cardLocation: { fontSize: '12px', color: '#888', display: 'block', marginTop: '2px' },
-  distance: { color: '#2563eb', fontWeight: 600 },
-  ratingCol: { textAlign: 'right', flexShrink: 0 },
   rating: {
     fontSize: '14px',
     color: '#f59e0b',
@@ -375,27 +289,21 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
   },
   reviewCount: { fontSize: '12px', color: '#999', fontWeight: 400 },
-  score: {
-    fontSize: '11px',
-    color: '#6b7280',
-    marginTop: '2px',
-  },
   cardDescription: {
     fontSize: '13px',
     color: '#666',
     lineHeight: 1.5,
-    margin: '0 0 10px 0',
+    margin: 0,
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
   },
-  cardMeta: {
-    display: 'flex',
-    gap: '16px',
-    fontSize: '12px',
-    color: '#9ca3af',
-    paddingTop: '10px',
-    borderTop: '1px solid #f3f4f6',
+  apiError: {
+    padding: '8px 24px',
+    fontSize: '13px',
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    borderBottom: '1px solid #fecaca',
   },
 };
