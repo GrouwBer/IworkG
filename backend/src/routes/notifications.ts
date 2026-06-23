@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import db from '../db';
+import db, { getNotificationPreferences, updateNotificationPreferences } from '../db';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -61,6 +61,24 @@ router.patch('/read-all', requireAuth, (req: Request, res: Response) => {
     'UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0'
   ).run(req.user!.id);
   res.json({ message: 'Todas notificações marcadas como lidas.' });
+});
+
+/**
+ * GET /api/notifications/preferences — Get user notification preferences
+ */
+router.get('/preferences', requireAuth, (req: Request, res: Response) => {
+  const prefs = getNotificationPreferences(req.user!.id);
+  res.json(prefs);
+});
+
+/**
+ * PUT /api/notifications/preferences — Update user notification preferences
+ * Body: { new_requests?, interests?, reviews?, promotions? }
+ */
+router.put('/preferences', requireAuth, (req: Request, res: Response) => {
+  const { new_requests, interests, reviews, promotions } = req.body;
+  updateNotificationPreferences(req.user!.id, { new_requests, interests, reviews, promotions });
+  res.json({ message: 'Preferências atualizadas.' });
 });
 
 export default router;

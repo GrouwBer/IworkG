@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireAuth, requireRole } from '../middleware/auth';
 import db, {
   getProviderReviews, getClientReviewForContact, createReview, hasClientContactedProvider,
-  createReport, hasRecentReport, getPendingReports,
+  createReport, hasRecentReport, getPendingReports, notifyUser,
 } from '../db';
 
 const router = Router();
@@ -347,6 +347,15 @@ router.post('/:userId/reviews', requireAuth, (req: Request, res: Response) => {
   if (profile.user_id === clientId) { res.status(403).json({ error: 'Você não pode avaliar a si mesmo.' }); return; }
   try {
     const review = createReview({ clientId, providerId: profile.id, contactId, rating, comment });
+    const client = db.prepare('SELECT name FROM users WHERE id = ?').get(clientId) as any;
+    // Notify the provider about the new review
+    notifyUser(
+      profile.user_id,
+      'review',
+      'Nova avaliação recebida!',
+      `${client.name} avaliou você com ${rating} ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}`,
+      { provider_id: profile.id, review_id: (review as any).id, rating }
+    );
     res.status(201).json({ id: (review as any).id, rating: (review as any).rating, comment: (review as any).comment, createdAt: (review as any).created_at });
   } catch (err: any) { res.status(500).json({ error: 'Erro ao salvar avaliação.' }); }
 });
