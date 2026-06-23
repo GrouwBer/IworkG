@@ -1,42 +1,53 @@
 import api from './api';
 
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+}
+
+export interface WizardState {
+  currentStep: number;
+  stepData: Record<string, any>;
+  prefill: { name: string; phone: string; email: string };
+  categories: Category[];
+}
+
 export interface ProviderProfile {
   id: string;
-  userId: string;
   categoryId: string;
-  description: string | null;
+  description: string;
+  city: string;
+  state: string;
   rating: number;
   reviewCount: number;
   latitude: number | null;
   longitude: number | null;
-  city: string | null;
-  state: string | null;
   active: boolean;
   createdAt: string;
-  updatedAt: string;
-}
-
-export interface StatusResponse {
-  active: boolean;
-  message: string;
 }
 
 export const providerService = {
-  /** Obtém o perfil do prestador logado */
+  async getWizard(): Promise<WizardState> {
+    const { data } = await api.get<WizardState>('/api/providers/wizard');
+    return data;
+  },
+  async saveWizard(step: number, data: Record<string, any>) {
+    const { data: res } = await api.put('/api/providers/wizard', { step, data });
+    return res;
+  },
+  async completeWizard(payload: {
+    category_id: string;
+    description: string;
+    city: string;
+    state: string;
+  }) {
+    const { data } = await api.post('/api/providers/wizard/complete', payload);
+    return data;
+  },
   async getMyProfile(): Promise<ProviderProfile> {
     const { data } = await api.get<ProviderProfile>('/api/providers/me');
-    return data;
-  },
-
-  /** Alterna o status de disponibilidade (toggle) */
-  async toggleStatus(): Promise<StatusResponse> {
-    const { data } = await api.patch<StatusResponse>('/api/providers/me/status');
-    return data;
-  },
-
-  /** Define o status de disponibilidade diretamente */
-  async setStatus(active: boolean): Promise<StatusResponse> {
-    const { data } = await api.patch<StatusResponse>('/api/providers/me/status', { active });
     return data;
   },
 };

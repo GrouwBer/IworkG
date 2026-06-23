@@ -1,40 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { providerService } from '../services/provider';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  // Provider availability state
-  const [disponivel, setDisponivel] = useState<boolean | null>(null);
-  const [toggling, setToggling] = useState(false);
-
-  // Load provider profile if user is a provider
-  useEffect(() => {
-    if (user?.role === 'provider') {
-      providerService.getMyProfile()
-        .then((profile) => setDisponivel(profile.active))
-        .catch(() => {
-          // Profile may not exist yet — default to available
-          setDisponivel(true);
-        });
-    }
-  }, [user]);
-
-  const handleToggle = useCallback(async () => {
-    if (toggling) return;
-    setToggling(true);
-    try {
-      const result = await providerService.toggleStatus();
-      setDisponivel(result.active);
-    } catch {
-      // silently fail — keep previous state
-    } finally {
-      setToggling(false);
-    }
-  }, [toggling]);
 
   const handleLogout = async () => {
     await logout();
@@ -66,41 +35,12 @@ export default function DashboardPage() {
           {user?.phone && <>Telefone: {user.phone}</>}
         </p>
 
-        {/* ── Provider Availability Toggle (RF020) ── */}
-        {user?.role === 'provider' && disponivel !== null && (
-          <div style={styles.toggleSection}>
-            <div style={styles.toggleRow}>
-              <div style={styles.toggleInfo}>
-                <span style={styles.toggleLabel}>Status de disponibilidade</span>
-                <span style={{
-                  ...styles.toggleStatus,
-                  color: disponivel ? '#16a34a' : '#dc2626',
-                }}>
-                  {disponivel ? '🟢 Disponível para serviços' : '🔴 Ocupado'}
-                </span>
-              </div>
-              <button
-                onClick={handleToggle}
-                disabled={toggling}
-                style={{
-                  ...styles.toggleButton,
-                  backgroundColor: disponivel ? '#16a34a' : '#dc2626',
-                  opacity: toggling ? 0.7 : 1,
-                }}
-                aria-label={disponivel ? 'Ficar ocupado' : 'Ficar disponível'}
-              >
-                <span style={{
-                  ...styles.toggleKnob,
-                  transform: disponivel ? 'translateX(24px)' : 'translateX(2px)',
-                }} />
-              </button>
-            </div>
-            <p style={styles.toggleHint}>
-              {disponivel
-                ? 'Seu perfil está visível nas buscas. Clique para ficar ocupado.'
-                : 'Seu perfil NÃO aparece nas buscas. Clique para ficar disponível.'
-              }
-            </p>
+        {user?.role === 'client' && (
+          <div style={styles.ctaBox}>
+            <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Quer trabalhar na plataforma?</p>
+            <button onClick={() => navigate('/register/provider')} style={styles.ctaBtn}>
+              🛠️ Tornar-se Prestador
+            </button>
           </div>
         )}
 
@@ -154,56 +94,24 @@ const styles: Record<string, React.CSSProperties> = {
   },
   role: { fontSize: '16px', color: '#555' },
   info: { fontSize: '14px', color: '#777', marginBottom: '32px' },
-  toggleSection: {
-    padding: '20px 24px',
-    backgroundColor: '#f8fafc',
+  ctaBox: {
+    padding: '20px',
+    backgroundColor: '#eff6ff',
     borderRadius: '12px',
-    border: '1px solid #e2e8f0',
-    marginBottom: '24px',
+    border: '2px solid #bfdbfe',
+    marginBottom: '20px',
+    textAlign: 'center' as const,
   },
-  toggleRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  toggleInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  toggleLabel: {
+  ctaBtn: {
+    padding: '12px 32px',
     fontSize: '15px',
     fontWeight: 600,
-    color: '#1e293b',
-  },
-  toggleStatus: {
-    fontSize: '13px',
-    fontWeight: 500,
-  },
-  toggleButton: {
-    position: 'relative',
-    width: '52px',
-    height: '28px',
-    borderRadius: '14px',
+    backgroundColor: '#2563eb',
+    color: '#fff',
     border: 'none',
+    borderRadius: '10px',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    flexShrink: 0,
-  },
-  toggleKnob: {
-    position: 'absolute',
-    top: '2px',
-    width: '24px',
-    height: '24px',
-    borderRadius: '50%',
-    backgroundColor: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-    transition: 'transform 0.2s ease',
-  },
-  toggleHint: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    margin: '8px 0 0 0',
+    fontFamily: 'inherit',
   },
   placeholder: {
     padding: '24px',
