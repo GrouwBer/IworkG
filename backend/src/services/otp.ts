@@ -3,26 +3,28 @@ import db from '../db';
 import { config } from '../config';
 
 /**
- * Generate and store an OTP code for a phone number.
- * In production, this would send via Twilio, Vonage, or WhatsApp Business API.
- * For MVP, we log the code to console and return it (development mode).
+ * Generate and store an OTP code for a phone number or email.
+ * In production, this would send via SMS/WhatsApp/Email.
+ * For MVP, we log the code to console (gated in production).
  */
-export function generateOTP(phone: string): { code: string; expiresAt: string } {
+export function generateOTP(identifier: string, identifierType: string = 'phone'): { code: string; expiresAt: string } {
   const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
   const expiresAt = new Date(
     Date.now() + config.otpExpiryMinutes * 60 * 1000
   ).toISOString();
 
-  // Invalidate previous unused codes for this phone
-  db.prepare("UPDATE otp_codes SET used = 1 WHERE phone = ? AND used = 0").run(phone);
+  // Invalidate previous unused codes for this identifier
+  db.prepare("UPDATE otp_codes SET used = 1 WHERE phone = ? AND used = 0").run(identifier);
 
   // Store new code
   db.prepare(
-    'INSERT INTO otp_codes (id, phone, code, expires_at) VALUES (?, ?, ?, ?)'
-  ).run(uuidv4(), phone, code, expiresAt);
+    'INSERT INTO otp_codes (id, phone, code, expires_at, identifier_type) VALUES (?, ?, ?, ?, ?)'
+  ).run(uuidv4(), identifier, code, expiresAt, identifierType);
 
-  // In production, send via SMS/WhatsApp here
-  console.log(`\n📱 OTP for ${phone}: ${code} (expires in ${config.otpExpiryMinutes} min)\n`);
+  // In production, do NOT log OTPs to console
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`\n📱 OTP for ${identifier} (${identifierType}): ${code} (expires in ${config.otpExpiryMinutes} min)\n`);
+  }
 
   return { code, expiresAt };
 }

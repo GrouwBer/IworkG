@@ -105,6 +105,10 @@ export default function LoginPage() {
             {loading ? 'Carregando...' : 'Receber código SMS'}
           </button>
         </form>
+
+        <div style={styles.forgotRow}>
+          <a href="/recuperar" style={styles.forgotLink}>🔐 Esqueci meu acesso</a>
+        </div>
       </div>
     </div>
   );
@@ -198,5 +202,16 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     marginBottom: '16px',
     fontSize: '14px',
+  },
+  forgotRow: {
+    marginTop: '20px',
+    textAlign: 'center',
+  },
+  forgotLink: {
+    color: '#6366f1',
+    fontSize: '14px',
+    fontWeight: 500,
+    textDecoration: 'none',
+    cursor: 'pointer',
   },
 };

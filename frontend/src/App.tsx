@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import OTPPage from './pages/OTPPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import ForgotAccessPage from './pages/ForgotAccessPage';
 import DashboardPage from './pages/DashboardPage';
 import SearchPage from './pages/SearchPage';
 import RequestDetailPage from './pages/RequestDetailPage';
@@ -20,6 +21,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/otp" element={<OTPPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/recuperar" element={<ForgotAccessPage />} />
 
           {/* Protected routes */}
           <Route path="/buscar" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
