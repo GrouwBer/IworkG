@@ -12,7 +12,7 @@ const URGENCY_COLORS: Record<string, string> = {
 };
 
 export default function RequestBoardPage() {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState<OpenRequest[]>([]);

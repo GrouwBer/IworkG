@@ -10,7 +10,7 @@ const LABELS = ['Dados', 'Categorias', 'Descrição', 'Localização', 'Verifica
 interface F { name: string; phone: string; sel: string[]; desc: string; exp: string; rad: string; addr: string; city: string; state: string }
 
 export default function ProviderRegisterPage() {
-  const { user, isAuthenticated, loading: al } = useAuth();
+  const { isAuthenticated, loading: al } = useAuth();
   const nav = useNavigate();
   const [wiz, setWiz] = useState<WizardState | null>(null);
   const [step, setStep] = useState(1);

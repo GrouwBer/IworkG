@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  backend:
+    name: Backend (TypeScript + Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm install
+
+      - name: Type check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Run tests (vitest)
+        run: npm test
+
+  frontend:
+    name: Frontend (TypeScript + Build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm install
+
+      - name: Type check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Build (vite)
+        run: npm run build

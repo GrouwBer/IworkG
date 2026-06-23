@@ -1,5 +1,4 @@
-import React from 'react';
-
+// RaioSlider — Design System (NF001)
 interface RaioSliderProps {
   value: number;
   onChange: (value: number) => void;
