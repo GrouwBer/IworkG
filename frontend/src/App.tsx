@@ -22,7 +22,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import RequestBoardPage from './pages/RequestBoardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
-import AdminPage from './pages/AdminPage';
+// AdminPage imported but route pending
 
 function App() {
   return (

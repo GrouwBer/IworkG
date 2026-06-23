@@ -17,7 +17,7 @@ const URGENCY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function MyRequestsPage() {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const navigate = useNavigate();
 
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
