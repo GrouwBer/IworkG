@@ -1,17 +1,49 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
+import Toast from '../components/Toast';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'EXCLUIR') return;
+    setDeleting(true);
+    try {
+      await api.delete('/api/auth/account', { data: { confirm: true } });
+      setToast({ message: '✅ Conta excluída com sucesso.', type: 'success' });
+      setTimeout(() => {
+        logout();
+        navigate('/login');
+      }, 2000);
+    } catch (err: any) {
+      setToast({ message: err.response?.data?.error || 'Erro ao excluir conta.', type: 'error' });
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
   return (
     <div style={styles.container}>
+      <Toast
+        message={toast?.message || ''}
+        type={toast?.type || 'success'}
+        visible={!!toast}
+        onClose={() => setToast(null)}
+      />
+
       <header style={styles.header}>
         <h1 style={styles.logo}>IworkG</h1>
         <div style={styles.userInfo}>
@@ -48,7 +80,63 @@ export default function DashboardPage() {
           <p>🚧 As demais funcionalidades serão implementadas nas próximas issues.</p>
           <p>Sprint 1 — Fundação: Autenticação (✓) | Filtros (#9) | Busca geográfica</p>
         </div>
+
+        {/* Configurações da Conta */}
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>⚙️ Configurações da Conta</h3>
+
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            style={styles.deleteBtn}
+          >
+            🗑️ Excluir Conta
+          </button>
+        </div>
       </main>
+
+      {/* Deletion Modal (RF004 / LGPD) */}
+      {showDeleteModal && (
+        <div style={styles.overlay} onClick={() => setShowDeleteModal(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={styles.modalTitle}>⚠️ Excluir Conta</h3>
+            <p style={styles.modalText}>
+              <strong>Tem certeza? Esta ação é irreversível.</strong>
+            </p>
+            <p style={styles.modalText}>
+              Seus dados pessoais serão removidos permanentemente. Avaliações que você
+              fez serão mantidas anonimizadas para não prejudicar a reputação dos prestadores.
+            </p>
+            <p style={styles.modalText}>
+              Digite <strong>EXCLUIR</strong> para confirmar:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="EXCLUIR"
+              style={styles.modalInput}
+            />
+            <div style={styles.modalActions}>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm(''); }}
+                style={styles.cancelBtn}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm !== 'EXCLUIR' || deleting}
+                style={{
+                  ...styles.confirmDeleteBtn,
+                  opacity: deleteConfirm !== 'EXCLUIR' || deleting ? 0.5 : 1,
+                }}
+              >
+                {deleting ? 'Excluindo...' : 'Sim, Excluir Minha Conta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -120,5 +208,102 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #bae6fd',
     fontSize: '14px',
     color: '#0369a1',
+    marginBottom: '24px',
+  },
+  section: {
+    padding: '20px',
+    backgroundColor: '#fafafa',
+    borderRadius: '12px',
+    border: '1px solid #e5e7eb',
+  },
+  sectionTitle: {
+    fontSize: '16px',
+    fontWeight: 600,
+    color: '#1f2937',
+    margin: '0 0 16px',
+  },
+  deleteBtn: {
+    padding: '12px 24px',
+    fontSize: '14px',
+    fontWeight: 600,
+    backgroundColor: '#fef2f2',
+    color: '#dc2626',
+    border: '1px solid #fecaca',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  // Modal styles
+  overlay: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    padding: '16px',
+  },
+  modal: {
+    width: '100%',
+    maxWidth: '440px',
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    padding: '32px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  modalTitle: {
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#dc2626',
+    margin: 0,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: '14px',
+    color: '#4b5563',
+    lineHeight: '1.5',
+    margin: 0,
+    textAlign: 'center',
+  },
+  modalInput: {
+    padding: '12px 16px',
+    fontSize: '18px',
+    fontWeight: 700,
+    border: '2px solid #fecaca',
+    borderRadius: '10px',
+    outline: 'none',
+    textAlign: 'center',
+    letterSpacing: '4px',
+    textTransform: 'uppercase',
+    color: '#1f2937',
+  },
+  modalActions: {
+    display: 'flex',
+    gap: '12px',
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: '12px',
+    fontSize: '14px',
+    fontWeight: 600,
+    backgroundColor: '#f3f4f6',
+    color: '#4b5563',
+    border: '1px solid #e5e7eb',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  confirmDeleteBtn: {
+    flex: 1,
+    padding: '12px',
+    fontSize: '14px',
+    fontWeight: 700,
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
   },
 };

@@ -6,6 +6,7 @@ import { config } from '../config';
 import { generateTokens, refreshAccessToken, blacklistToken, revokeAllUserTokens } from '../services/token';
 import { generateOTP, verifyOTP } from '../services/otp';
 import { requireAuth } from '../middleware/auth';
+import { rateLimiter } from '../middleware/rateLimit';
 import type { User } from '../types';
 
 const router = Router();
@@ -16,6 +17,28 @@ const googleClient = new OAuth2Client(
   config.googleClientSecret,
   config.googleRedirectUri
 );
+
+// ── Helper: upsert Google user (extracted to avoid duplication — W5) ──
+function upsertGoogleUser(googleId: string, email: string, name: string, avatarUrl: string): User {
+  let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
+
+  if (!user) {
+    const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
+    if (existingByEmail) {
+      db.prepare("UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(googleId, avatarUrl, existingByEmail.id);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
+    } else {
+      const userId = uuidv4();
+      db.prepare(
+        'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(userId, name, email, googleId, avatarUrl, 'client');
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
+    }
+  }
+
+  return user!;
+}
 
 // ──────────────────────────────────────────────
 // POST /api/auth/google — Google OAuth login
@@ -47,26 +70,10 @@ router.post('/google', async (req: Request, res: Response) => {
     const name = payload.name || email.split('@')[0];
     const avatarUrl = payload.picture || '';
 
-    // Upsert user
-    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
+    // Upsert user (via helper — W5)
+    const user = upsertGoogleUser(googleId, email, name, avatarUrl);
 
-    if (!user) {
-      // Check if email already exists (link accounts)
-      const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
-      if (existingByEmail) {
-        db.prepare('UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime(\'now\') WHERE id = ?')
-          .run(googleId, avatarUrl, existingByEmail.id);
-        user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
-      } else {
-        const userId = uuidv4();
-        db.prepare(
-          'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(userId, name, email, googleId, avatarUrl, 'client');
-        user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
-      }
-    }
-
-    const tokens = generateTokens(user!);
+    const tokens = generateTokens(user);
 
     res.json({
       user: {
@@ -131,21 +138,8 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     const name = payload.name || email.split('@')[0];
     const avatarUrl = payload.picture || '';
 
-    let user = db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId) as User | undefined;
-    if (!user) {
-      const existingByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
-      if (existingByEmail) {
-        db.prepare('UPDATE users SET google_id = ?, avatar_url = ?, updated_at = datetime(\'now\') WHERE id = ?')
-          .run(googleId, avatarUrl, existingByEmail.id);
-        user = db.prepare('SELECT * FROM users WHERE id = ?').get(existingByEmail.id) as User;
-      } else {
-        const userId = uuidv4();
-        db.prepare(
-          'INSERT INTO users (id, name, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(userId, name, email, googleId, avatarUrl, 'client');
-        user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
-      }
-    }
+    // Upsert user (via helper — W5)
+    const user = upsertGoogleUser(googleId, email, name, avatarUrl);
 
     const authTokens = generateTokens(user!);
 
@@ -288,6 +282,209 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
     role: user.role,
     createdAt: user.created_at,
   });
+});
+
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/send — Send recovery code (RF002)
+// Body: { phone: string } or { email: string }
+// ──────────────────────────────────────────────
+router.post('/recover/send', (req: Request, res: Response) => {
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!rateLimiter(3, 60000)(clientIp)) {
+    res.status(429).json({ error: 'Muitas tentativas. Aguarde 1 minuto para tentar novamente.' });
+    return;
+  }
+
+  const { phone, email } = req.body;
+
+  if (!phone && !email) {
+    res.status(400).json({ error: 'Informe telefone ou e-mail para recuperação.' });
+    return;
+  }
+
+  if (phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length < 10 || cleaned.length > 15) {
+      res.status(400).json({ error: 'Número de telefone inválido.' });
+      return;
+    }
+
+    // Check if user exists with this phone
+    const user = db.prepare('SELECT id FROM users WHERE phone = ? AND deleted_at IS NULL').get(cleaned);
+    if (!user) {
+      // Don't reveal whether the account exists — security best practice
+      res.json({ message: 'Se o telefone estiver cadastrado, você receberá um código de recuperação.', method: 'phone' });
+      return;
+    }
+
+    const { expiresAt } = generateOTP(cleaned);
+    res.json({ message: 'Código de recuperação enviado.', expiresAt, method: 'phone' });
+    return;
+  }
+
+  if (email) {
+    // Check if user exists with this email
+    const user = db.prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NULL').get(email);
+    if (!user) {
+      res.json({ message: 'Se o e-mail estiver cadastrado, você receberá um link de recuperação.', method: 'email' });
+      return;
+    }
+
+    // For MVP: generate OTP tied to the email (with identifier_type)
+    const { expiresAt } = generateOTP(email, 'email');
+    res.json({ message: 'Código de recuperação enviado para o e-mail.', expiresAt, method: 'email' });
+  }
+});
+
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/verify — Verify recovery code (RF002)
+// Body: { phone: string } or { email: string }, code: string
+// ──────────────────────────────────────────────
+router.post('/recover/verify', (req: Request, res: Response) => {
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!rateLimiter(10, 60000)(clientIp)) {
+    res.status(429).json({ error: 'Muitas tentativas. Aguarde 1 minuto para tentar novamente.' });
+    return;
+  }
+
+  const { phone, email, code } = req.body;
+
+  if (!code) {
+    res.status(400).json({ error: 'Código de recuperação é obrigatório.' });
+    return;
+  }
+
+  const identifier = phone ? phone.replace(/\D/g, '') : email;
+
+  if (!identifier) {
+    res.status(400).json({ error: 'Informe telefone ou e-mail.' });
+    return;
+  }
+
+  if (!verifyOTP(identifier, code)) {
+    res.status(401).json({ error: 'Código inválido ou expirado.' });
+    return;
+  }
+
+  // Find user by identifier
+  const user = db.prepare(
+    'SELECT id FROM users WHERE (phone = ? OR email = ?) AND deleted_at IS NULL'
+  ).get(identifier, identifier) as any;
+
+  if (!user) {
+    res.status(404).json({ error: 'Usuário não encontrado.' });
+    return;
+  }
+
+  // Generate a one-time recovery token (valid for 10 minutes) stored in dedicated table
+  const recoveryToken = uuidv4();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  db.prepare(
+    'INSERT INTO recovery_tokens (id, user_id, identifier, token, expires_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(uuidv4(), user.id, identifier, recoveryToken, expiresAt);
+
+  res.json({
+    message: 'Código verificado com sucesso.',
+    recoveryToken,
+    expiresAt,
+  });
+});
+
+// ──────────────────────────────────────────────
+// POST /api/auth/recover/reset — Reset login method (RF002)
+// Body: recoveryToken, newPhone?: string, newEmail?: string
+// ──────────────────────────────────────────────
+router.post('/recover/reset', (req: Request, res: Response) => {
+  const { recoveryToken, newPhone, newEmail } = req.body;
+
+  if (!recoveryToken) {
+    res.status(400).json({ error: 'Token de recuperação é obrigatório.' });
+    return;
+  }
+
+  // Validate recovery token from dedicated table
+  const stored = db.prepare(
+    'SELECT user_id, identifier, used FROM recovery_tokens WHERE token = ? AND used = 0 AND expires_at > datetime(\'now\')'
+  ).get(recoveryToken) as any;
+
+  if (!stored) {
+    res.status(401).json({ error: 'Token de recuperação inválido ou expirado.' });
+    return;
+  }
+
+  // Mark token as used
+  db.prepare('UPDATE recovery_tokens SET used = 1 WHERE token = ?').run(recoveryToken);
+
+  // Find user
+  const user = db.prepare(
+    'SELECT * FROM users WHERE id = ? AND deleted_at IS NULL'
+  ).get(stored.user_id) as any;
+
+  if (!user) {
+    res.status(404).json({ error: 'Usuário não encontrado.' });
+    return;
+  }
+
+  if (!newPhone && !newEmail) {
+    res.status(400).json({ error: 'Informe o novo telefone ou e-mail.' });
+    return;
+  }
+
+  // Basic email format validation (S2)
+  if (newEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    res.status(400).json({ error: 'Formato de e-mail inválido.' });
+    return;
+  }
+
+  // Update login method
+  if (newPhone) {
+    const cleaned = newPhone.replace(/\D/g, '');
+    db.prepare('UPDATE users SET phone = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(cleaned, user.id);
+  }
+  if (newEmail) {
+    db.prepare('UPDATE users SET email = ?, updated_at = datetime(\'now\') WHERE id = ?')
+      .run(newEmail, user.id);
+  }
+
+  // Revoke old tokens
+  revokeAllUserTokens(user.id);
+
+  res.json({ message: 'Método de acesso atualizado com sucesso. Faça login novamente.' });
+});
+
+// ──────────────────────────────────────────────
+// DELETE /api/auth/account — Delete/Anonymize account (RF004 / LGPD)
+// Body: { confirm: true }
+// ──────────────────────────────────────────────
+router.delete('/account', requireAuth, (req: Request, res: Response) => {
+  const { confirm } = req.body;
+
+  if (confirm !== 'EXCLUIR') {
+    res.status(400).json({ error: 'Confirmação explícita é necessária. Digite EXCLUIR para confirmar.' });
+    return;
+  }
+
+  const userId = req.user!.id;
+
+  // Anonymize user data (LGPD compliance)
+  db.prepare(`
+    UPDATE users SET
+      name = 'Usuário removido',
+      email = NULL,
+      phone = NULL,
+      avatar_url = NULL,
+      google_id = NULL,
+      deleted_at = datetime('now'),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(userId);
+
+  // Revoke all active tokens
+  revokeAllUserTokens(userId);
+
+  res.json({ message: 'Conta excluída com sucesso. Seus dados pessoais foram removidos, mantendo apenas avaliações anônimas.' });
 });
 
 export default router;

@@ -1,114 +1,18 @@
-interface Props {
-  currentStep: number;
-  totalSteps: number;
-  labels: string[];
-}
+interface Props { currentStep: number; totalSteps: number; labels: string[] }
 
 export default function ProgressBar({ currentStep, totalSteps, labels }: Props) {
-  return (
-    <div style={styles.wrapper}>
-      <div style={styles.bar}>
-        {Array.from({ length: totalSteps }, (_, i) => {
-          const step = i + 1;
-          const done = step < currentStep;
-          const active = step === currentStep;
-          return (
-            <div key={step} style={styles.stepWrapper}>
-              <div
-                style={{
-                  ...styles.dot,
-                  ...(done ? styles.dotDone : {}),
-                  ...(active ? styles.dotActive : {}),
-                }}
-              >
-                {done ? '✓' : step}
-              </div>
-              <span
-                style={{
-                  ...styles.label,
-                  ...(done || active ? styles.labelActive : {}),
-                }}
-              >
-                {labels[i]}
-              </span>
-              {step < totalSteps && (
-                <div
-                  style={{
-                    ...styles.connector,
-                    ...(done ? styles.connectorDone : {}),
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
+  const pct = Math.round((currentStep / totalSteps) * 100);
+  return <div style={{ marginBottom: 32 }}>
+    <div style={{ width: '100%', height: 8, backgroundColor: '#e5e7eb', borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ height: '100%', width: `${pct}%`, backgroundColor: '#2563eb', borderRadius: 4, transition: 'width 0.4s', minWidth: 40, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, paddingRight: 8 }}>{pct}%</span>
       </div>
     </div>
-  );
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+      {labels.map((l, i) => { const n = i + 1; const done = n < currentStep; const active = n === currentStep; return <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1, opacity: active ? 1 : done ? .75 : .45 }}>
+        <span style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: done ? '#16a34a' : active ? '#2563eb' : '#e5e7eb', color: done || active ? '#fff' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, boxShadow: active ? '0 0 0 3px rgba(37,99,235,.2)' : undefined }}>{done ? '✓' : n}</span>
+        <span style={{ fontSize: 11, color: active ? '#1d4ed8' : '#6b7280', textAlign: 'center', fontWeight: active ? 700 : 500 }}>{l}</span>
+      </div>; })}
+    </div>
+  </div>;
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    padding: '16px 0 24px',
-  },
-  bar: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: 0,
-  },
-  stepWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    position: 'relative',
-    flex: 1,
-    maxWidth: '120px',
-  },
-  dot: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '14px',
-    fontWeight: 700,
-    backgroundColor: '#e5e7eb',
-    color: '#9ca3af',
-    transition: 'all 0.3s',
-    zIndex: 1,
-  },
-  dotDone: {
-    backgroundColor: '#16a34a',
-    color: '#fff',
-  },
-  dotActive: {
-    backgroundColor: '#2563eb',
-    color: '#fff',
-    boxShadow: '0 0 0 4px rgba(37, 99, 235, 0.2)',
-  },
-  label: {
-    fontSize: '11px',
-    color: '#9ca3af',
-    marginTop: '6px',
-    textAlign: 'center',
-    transition: 'color 0.3s',
-  },
-  labelActive: {
-    color: '#374151',
-    fontWeight: 500,
-  },
-  connector: {
-    position: 'absolute',
-    top: '16px',
-    left: 'calc(50% + 20px)',
-    width: 'calc(100% - 40px)',
-    height: '2px',
-    backgroundColor: '#e5e7eb',
-    transition: 'background-color 0.3s',
-  },
-  connectorDone: {
-    backgroundColor: '#16a34a',
-  },
-};

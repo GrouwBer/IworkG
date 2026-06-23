@@ -59,6 +59,7 @@ db.exec(`
     avatar_url TEXT,
     google_id TEXT UNIQUE,
     role TEXT NOT NULL DEFAULT 'client',
+    deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -98,7 +99,25 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_jti ON blacklisted_tokens(token_jti);
   CREATE INDEX IF NOT EXISTS idx_provider_profiles_category ON provider_profiles(category_id);
   CREATE INDEX IF NOT EXISTS idx_provider_profiles_active ON provider_profiles(active);
+
+  CREATE TABLE IF NOT EXISTS recovery_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    identifier TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
+
+// Migration: add deleted_at for existing databases
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN deleted_at TEXT`);
+} catch {
+  // Column already exists — ignore
+}
 
 // ── Categories (issue #9) ──
 db.exec(`
@@ -204,6 +223,10 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
+
+// ── Migrations (safe ALTER TABLE for existing databases) ──
+try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
+try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
