@@ -15,7 +15,8 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
-RUN npm install --production && npm rebuild better-sqlite3
+RUN npm install --production && npm rebuild better-sqlite3 \
+    && apk del python3 make g++
 
 COPY --from=build /app/dist ./dist
 

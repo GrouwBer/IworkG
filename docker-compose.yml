@@ -12,6 +12,12 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/categories"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   frontend:
     build:
@@ -21,7 +27,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
