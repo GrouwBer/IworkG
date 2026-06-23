@@ -30,8 +30,9 @@ router.post('/:id/interest', requireAuth, requireRole('provider'), (req: Request
   }
 
   // Check if already expressed interest (UNIQUE constraint handles race conditions)
+  let interestId: string;
   try {
-    const interestId = uuidv4();
+    interestId = uuidv4();
     db.prepare(
       'INSERT INTO interests (id, request_id, provider_id) VALUES (?, ?, ?)'
     ).run(interestId, requestId, providerId);
