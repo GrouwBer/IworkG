@@ -18,7 +18,7 @@ export default function RequestDetailPage() {
 
   const isProvider = user?.role === 'provider';
   const isClient = user?.role === 'client';
-  const isOwner = request && user?.id === (request as any).client_id;
+  const isOwner = request && user?.id === request.client?.id;
 
   useEffect(() => {
     if (!id) return;
@@ -147,7 +147,7 @@ export default function RequestDetailPage() {
                     )}
                   </div>
                   <button
-                    onClick={() => navigate(`/provider/${item.provider.id}`)}
+                    onClick={() => navigate(`/prestador/${item.provider.id}`)}
                     style={styles.viewProfileBtn}
                   >
                     Ver Perfil

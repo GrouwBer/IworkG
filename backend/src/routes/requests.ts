@@ -84,9 +84,18 @@ router.get('/:id/interests', requireAuth, (req: Request, res: Response) => {
     return;
   }
 
-  // Only the client who created the request can see the interests list
+  // Non-owners (providers viewing the request): return request info without interests list
   if (request.client_id !== userId && req.user!.role !== 'admin') {
-    res.status(403).json({ error: 'Apenas o cliente dono do pedido pode ver os interessados.' });
+    res.json({
+      request: {
+        id: request.id,
+        title: request.title,
+        description: request.description,
+        status: request.status,
+        createdAt: request.created_at,
+      },
+      interests: [],
+    });
     return;
   }
 
