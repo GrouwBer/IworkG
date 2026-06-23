@@ -507,20 +507,20 @@ export function getAdminStats(periodDays: number = 30): AdminStats {
   const sinceISO = since.toISOString();
 
   const totalClients = (db.prepare(
-    "SELECT COUNT(*) as cnt FROM users WHERE role = 'client' AND deleted_at IS NULL"
-  ).get() as any).cnt;
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'client' AND deleted_at IS NULL AND created_at >= ?"
+  ).get(sinceISO) as any).cnt;
 
   const totalProviders = (db.prepare(
-    "SELECT COUNT(*) as cnt FROM users WHERE role = 'provider' AND deleted_at IS NULL"
-  ).get() as any).cnt;
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'provider' AND deleted_at IS NULL AND created_at >= ?"
+  ).get(sinceISO) as any).cnt;
 
   const totalRequests = (db.prepare(
-    'SELECT COUNT(*) as cnt FROM service_requests'
-  ).get() as any).cnt;
+    'SELECT COUNT(*) as cnt FROM service_requests WHERE created_at >= ?'
+  ).get(sinceISO) as any).cnt;
 
   const totalContacts = (db.prepare(
-    'SELECT COUNT(*) as cnt FROM contact_history'
-  ).get() as any).cnt;
+    'SELECT COUNT(*) as cnt FROM contact_history WHERE created_at >= ?'
+  ).get(sinceISO) as any).cnt;
 
   const contactsByDay = db.prepare(`
     SELECT DATE(created_at) as date, COUNT(*) as count
@@ -540,10 +540,6 @@ export function getAdminStats(periodDays: number = 30): AdminStats {
     LIMIT 5
   `).all(sinceISO) as { name: string; icon: string; count: number }[];
 
-  const totalRequestsPeriod = (db.prepare(
-    'SELECT COUNT(*) as cnt FROM service_requests WHERE created_at >= ?'
-  ).get(sinceISO) as any).cnt;
-
   const requestsWithInterest = (db.prepare(`
     SELECT COUNT(DISTINCT sr.id) as cnt
     FROM service_requests sr
@@ -552,9 +548,9 @@ export function getAdminStats(periodDays: number = 30): AdminStats {
   `).get(sinceISO) as any).cnt;
 
   const conversionRate = {
-    total: totalRequestsPeriod,
+    total: totalRequests,
     withInterest: requestsWithInterest,
-    rate: totalRequestsPeriod > 0 ? Math.round((requestsWithInterest / totalRequestsPeriod) * 100) : 0,
+    rate: totalRequests > 0 ? Math.round((requestsWithInterest / totalRequests) * 100) : 0,
   };
 
   return {

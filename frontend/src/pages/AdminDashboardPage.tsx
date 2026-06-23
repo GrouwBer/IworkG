@@ -71,8 +71,8 @@ export default function AdminDashboardPage() {
 
         {/* Metric cards */}
         <div style={styles.cardGrid}>
-          <div style={styles.card}><span style={styles.cardLabel}>Clientes</span><span style={styles.cardValue}>{stats.totalClients}</span></div>
-          <div style={styles.card}><span style={styles.cardLabel}>Prestadores</span><span style={styles.cardValue}>{stats.totalProviders}</span></div>
+          <div style={styles.card}><span style={styles.cardLabel}>Novos clientes</span><span style={styles.cardValue}>{stats.totalClients}</span></div>
+          <div style={styles.card}><span style={styles.cardLabel}>Novos prestadores</span><span style={styles.cardValue}>{stats.totalProviders}</span></div>
           <div style={styles.card}><span style={styles.cardLabel}>Pedidos</span><span style={styles.cardValue}>{stats.totalRequests}</span></div>
           <div style={styles.card}><span style={styles.cardLabel}>Contatos</span><span style={styles.cardValue}>{stats.totalContacts}</span></div>
         </div>
