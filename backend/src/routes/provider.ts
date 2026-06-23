@@ -5,6 +5,8 @@ import db, {
   getWizardState, createWizardState, updateWizardState, deleteWizardState,
   getProviderProfile, createProviderProfile, setProviderCategories, getProviderCategories, getAllCategories,
   addPortfolioPhoto, getPortfolioPhotos, getPortfolioPhoto, deletePortfolioPhoto, countPortfolioPhotos,
+  getProviderReviews, getClientReviewForContact, createReview, hasClientContactedProvider,
+  createReport, hasRecentReport,
 } from '../db';
 import { processAndSaveImage, deleteImageFile } from '../services/image';
 
@@ -123,6 +125,52 @@ router.get('/me/portfolio', (req: Request, res: Response) => {
   if (!profile) { res.status(404).json({ error: 'Perfil de prestador não encontrado.' }); return; }
   const photos = getPortfolioPhotos(profile.id);
   res.json({ providerId: profile.id, photos: photos.map((p: any) => ({ id: p.id, tag: p.tag, mimeType: p.mime_type, sizeBytes: p.size_bytes, originalName: p.original_name, url: `/uploads/portfolio/${p.filename}`, createdAt: p.created_at, sortOrder: p.sort_order })) });
+});
+
+// ═══════════════════════════════════════════════
+// Review endpoints (issue #17)
+// ═══════════════════════════════════════════════
+
+router.post('/:userId/reviews', (req: Request, res: Response) => {
+  const clientId = req.user!.id;
+  const { rating, comment, contactId } = req.body;
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.params.userId as string) as any;
+  if (!profile) { res.status(404).json({ error: 'Prestador não encontrado.' }); return; }
+  if (!rating || rating < 1 || rating > 5) { res.status(400).json({ error: 'Nota deve ser entre 1 e 5.' }); return; }
+  if (comment && comment.length > 300) { res.status(400).json({ error: 'Comentário máximo 300 caracteres.' }); return; }
+  if (!hasClientContactedProvider(clientId, profile.user_id)) { res.status(403).json({ error: 'Você precisa ter contatado este prestador antes de avaliar.' }); return; }
+  if (contactId && getClientReviewForContact(clientId, contactId)) { res.status(409).json({ error: 'Você já avaliou este contato.' }); return; }
+  if (profile.user_id === clientId) { res.status(403).json({ error: 'Você não pode avaliar a si mesmo.' }); return; }
+  try {
+    const review = createReview({ clientId, providerId: profile.id, contactId, rating, comment });
+    res.status(201).json({ id: (review as any).id, rating: (review as any).rating, comment: (review as any).comment, createdAt: (review as any).created_at });
+  } catch (err: any) { res.status(500).json({ error: 'Erro ao salvar avaliação.' }); }
+});
+
+router.get('/:userId/reviews', (req: Request, res: Response) => {
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.params.userId as string) as any;
+  if (!profile) { res.status(404).json({ error: 'Prestador não encontrado.' }); return; }
+  const reviews = getProviderReviews(profile.id);
+  res.json((reviews as any[]).map((r: any) => ({ id: r.id, rating: r.rating, comment: r.comment, createdAt: r.created_at, client: { id: r.client_id, name: r.client_name, avatarUrl: r.client_avatar } })));
+});
+
+// ═══════════════════════════════════════════════
+// Report endpoint (issue #18)
+// ═══════════════════════════════════════════════
+
+router.post('/:userId/report', (req: Request, res: Response) => {
+  const reporterId = req.user!.id;
+  const { reason, description } = req.body;
+  const validReasons = ['Perfil falso', 'Comportamento inadequado', 'Golpe', 'Outro'];
+  if (!reason || !validReasons.includes(reason)) { res.status(400).json({ error: 'Motivo inválido.' }); return; }
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.params.userId as string) as any;
+  if (!profile) { res.status(404).json({ error: 'Prestador não encontrado.' }); return; }
+  if (profile.user_id === reporterId) { res.status(403).json({ error: 'Você não pode denunciar a si mesmo.' }); return; }
+  if (hasRecentReport(reporterId, profile.id)) { res.status(429).json({ error: 'Você já denunciou este prestador nas últimas 24h.' }); return; }
+  try {
+    createReport({ reporterId, reportedProviderId: profile.id, reason, description });
+    res.status(201).json({ message: 'Denúncia registrada. Nossa equipe irá analisar.' });
+  } catch (err: any) { res.status(500).json({ error: 'Erro ao registrar denúncia.' }); }
 });
 
 export default router;
