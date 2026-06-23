@@ -44,4 +44,36 @@ export const adminService = {
     const { data } = await api.get('/api/admin/stats', { params: { period: periodDays } });
     return data;
   },
+
+  // ── Reports & Bans (issue #19) ──
+
+  async getReports(): Promise<any[]> {
+    const { data } = await api.get('/api/admin/reports');
+    return data;
+  },
+
+  async getReport(id: string): Promise<any> {
+    const { data } = await api.get(`/api/admin/reports/${id}`);
+    return data;
+  },
+
+  async resolveReport(id: string, body: { action: string; justification?: string }): Promise<any> {
+    const { data } = await api.post(`/api/admin/reports/${id}/resolve`, body);
+    return data;
+  },
+
+  async banUser(userId: string, reason: string): Promise<any> {
+    const { data } = await api.post(`/api/admin/users/${userId}/ban`, { reason });
+    return data;
+  },
+
+  async unbanUser(userId: string): Promise<any> {
+    const { data } = await api.post(`/api/admin/users/${userId}/unban`);
+    return data;
+  },
+
+  async getBans(): Promise<any[]> {
+    const { data } = await api.get('/api/admin/bans');
+    return data;
+  },
 };

@@ -260,6 +260,69 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  -- Admin reports (issue #19)
+  CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    reporter_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    resolved_by TEXT,
+    resolution TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at TEXT,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS reviews (
+    id TEXT PRIMARY KEY,
+    reviewer_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    comment TEXT,
+    response TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS portfolio_photos (
+    id TEXT PRIMARY KEY,
+    provider_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS bans (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    admin_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    revoked_at TEXT,
+    revoked_by TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_actions (
+    id TEXT PRIMARY KEY,
+    admin_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    justification TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Migrations (safe ALTER TABLE for existing databases) ──
@@ -267,6 +330,10 @@ try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN contact_count INTEGER DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN photo_url TEXT"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN address TEXT"); } catch {}
+try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [

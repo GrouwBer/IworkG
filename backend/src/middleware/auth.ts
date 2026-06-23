@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, isTokenBlacklisted } from '../services/token';
+import db from '../db';
 
 /**
  * Middleware: require valid access token.
@@ -33,6 +34,13 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       role: payload.role,
       jti: payload.jti,
     };
+
+    // Check if user is banned (issue #19)
+    const userRow = db.prepare('SELECT banned FROM users WHERE id = ?').get(req.user.id) as any;
+    if (userRow?.banned) {
+      res.status(403).json({ error: 'Conta suspensa. Entre em contato com o suporte.' });
+      return;
+    }
 
     next();
   } catch (err: any) {

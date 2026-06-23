@@ -20,6 +20,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import RequestBoardPage from './pages/RequestBoardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
           {/* Admin routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
           <Route path="/admin/categorias" element={<ProtectedRoute><AdminCategoriesPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
 
           {/* Help & Legal */}
           <Route path="/ajuda" element={<HelpPage />} />

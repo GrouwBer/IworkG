@@ -79,6 +79,15 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {user?.role === 'admin' && (
+          <div style={styles.ctaBox}>
+            <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Painel Administrativo</p>
+            <button onClick={() => navigate('/admin')} style={styles.ctaBtn}>
+              ⚙️ Ir para Admin
+            </button>
+          </div>
+        )}
+
         <div style={styles.placeholder}>
           <p>🚧 As demais funcionalidades serão implementadas nas próximas issues.</p>
           <p>Sprint 1 — Fundação: Autenticação (✓) | Filtros (#9) | Busca geográfica</p>
