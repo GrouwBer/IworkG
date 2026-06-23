@@ -5,6 +5,193 @@ import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
 
+// ── NEW: Issue #13 — Mural de Pedidos ──
+// IMPORTANT: Static routes (/, /mine) must come BEFORE /:id routes to avoid
+// Express interpreting "mine" or "" as :id.
+
+/**
+ * POST /api/requests — Create a new service request (client only)
+ */
+router.post('/', requireAuth, (req: Request, res: Response) => {
+  const { title, description, category_id, urgency, photo_url, lat, lng, city, state, address } = req.body;
+
+  if (!title || !category_id) {
+    res.status(400).json({ error: 'Título e categoria são obrigatórios.' });
+    return;
+  }
+  if (typeof title !== 'string' || title.length > 100) {
+    res.status(400).json({ error: 'Título deve ter no máximo 100 caracteres.' });
+    return;
+  }
+  if (description && (typeof description !== 'string' || description.length > 500)) {
+    res.status(400).json({ error: 'Descrição deve ter no máximo 500 caracteres.' });
+    return;
+  }
+
+  const id = uuidv4();
+  const clientId = req.user!.id;
+
+  db.prepare(`
+    INSERT INTO service_requests (id, client_id, title, description, category_id, urgency, photo_url, latitude, longitude, city, state, address)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id, clientId, title, description || null, category_id,
+    urgency || 'medium', photo_url || null,
+    lat || null, lng || null, city || null, state || null, address || null
+  );
+
+  res.status(201).json({ id, message: 'Pedido publicado com sucesso!' });
+});
+
+/**
+ * GET /api/requests — List open requests (Mural)
+ */
+router.get('/', requireAuth, (req: Request, res: Response) => {
+  const { category_id, lat, lng, limit: limitStr, offset: offsetStr } = req.query;
+  const limit = Math.min(Math.max(parseInt(limitStr as string) || 20, 1), 50);
+  const offset = Math.max(parseInt(offsetStr as string) || 0, 0);
+
+  let sql = `
+    SELECT sr.id, sr.title, sr.description, sr.category_id, sr.urgency, sr.photo_url,
+           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status,
+           sr.created_at,
+           u.id as client_id, u.name as client_name, u.avatar_url as client_avatar,
+           c.name as category_name, c.icon as category_icon,
+           (SELECT COUNT(*) FROM interests i WHERE i.request_id = sr.id) as interest_count
+    FROM service_requests sr
+    JOIN users u ON u.id = sr.client_id
+    LEFT JOIN categories c ON c.id = sr.category_id
+    WHERE sr.status = 'open'
+  `;
+  const params: any[] = [];
+
+  if (category_id) {
+    sql += ' AND sr.category_id = ?';
+    params.push(category_id);
+  }
+
+  if (lat !== undefined && lng !== undefined) {
+    const latNum = parseFloat(lat as string);
+    const lngNum = parseFloat(lng as string);
+    if (!isNaN(latNum) && !isNaN(lngNum)) {
+      sql += ` ORDER BY (
+        (sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)
+      ) ASC`;
+      params.push(latNum, latNum, lngNum, lngNum);
+    } else {
+      sql += ' ORDER BY sr.created_at DESC';
+    }
+  } else {
+    sql += ' ORDER BY sr.created_at DESC';
+  }
+
+  sql += ' LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  const rows = db.prepare(sql).all(...params) as any[];
+
+  res.json({
+    requests: rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      categoryId: r.category_id,
+      category: r.category_name ? { name: r.category_name, icon: r.category_icon } : null,
+      urgency: r.urgency,
+      photoUrl: r.photo_url,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      city: r.city,
+      state: r.state,
+      address: r.address,
+      status: r.status,
+      interestCount: r.interest_count,
+      createdAt: r.created_at,
+      client: {
+        id: r.client_id,
+        name: r.client_name,
+        avatarUrl: r.client_avatar,
+      },
+    })),
+  });
+});
+
+/**
+ * GET /api/requests/mine — My requests (logged user)
+ */
+router.get('/mine', requireAuth, (req: Request, res: Response) => {
+  const userId = req.user!.id;
+
+  const rows = db.prepare(`
+    SELECT sr.id, sr.title, sr.description, sr.category_id, sr.urgency, sr.photo_url,
+           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status,
+           sr.created_at,
+           c.name as category_name, c.icon as category_icon,
+           (SELECT COUNT(*) FROM interests i WHERE i.request_id = sr.id) as interest_count
+    FROM service_requests sr
+    LEFT JOIN categories c ON c.id = sr.category_id
+    WHERE sr.client_id = ?
+    ORDER BY sr.created_at DESC
+  `).all(userId) as any[];
+
+  res.json({
+    requests: rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      categoryId: r.category_id,
+      category: r.category_name ? { name: r.category_name, icon: r.category_icon } : null,
+      urgency: r.urgency,
+      photoUrl: r.photo_url,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      city: r.city,
+      state: r.state,
+      address: r.address,
+      status: r.status,
+      interestCount: r.interest_count,
+      createdAt: r.created_at,
+    })),
+  });
+});
+
+/**
+ * PATCH /api/requests/:id — Update request status
+ */
+router.patch('/:id', requireAuth, (req: Request, res: Response) => {
+  const requestId = req.params.id;
+  const userId = req.user!.id;
+  const { status } = req.body;
+
+  const request = db.prepare('SELECT * FROM service_requests WHERE id = ?').get(requestId) as any;
+  if (!request) {
+    res.status(404).json({ error: 'Pedido não encontrado.' });
+    return;
+  }
+
+  if (request.client_id !== userId && req.user!.role !== 'admin') {
+    res.status(403).json({ error: 'Apenas o dono do pedido pode alterar o status.' });
+    return;
+  }
+
+  const validTransitions: Record<string, string[]> = {
+    open: ['cancelled', 'in_progress'],
+    in_progress: ['completed'],
+  };
+
+  if (!validTransitions[request.status]?.includes(status)) {
+    res.status(400).json({
+      error: `Transição inválida de "${request.status}" para "${status}".`,
+    });
+    return;
+  }
+
+  db.prepare("UPDATE service_requests SET status = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(status, requestId);
+
+  res.json({ message: 'Status atualizado com sucesso.', status });
+});
+
 /**
  * POST /api/requests/:id/interest — Provider expresses interest in a request
  */

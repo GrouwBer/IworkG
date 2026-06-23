@@ -266,7 +266,10 @@ db.exec(`
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN contact_count INTEGER DEFAULT 0"); } catch {}
-try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'medium'"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN photo_url TEXT"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN address TEXT"); } catch {}
+try { db.exec("ALTER TABLE categories ADD COLUMN deleted_at TEXT"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
