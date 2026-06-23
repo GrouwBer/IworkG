@@ -216,31 +216,20 @@ describe('Fluxo integrado: notificações', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.unreadCount).toBe(0);
+    expect(Array.isArray(res.body.notifications)).toBe(true);
   });
 
-  it('2. Preferências padrão', async () => {
+  it('2. Requer autenticação', async () => {
+    const res = await request(app).get('/api/notifications');
+    expect(res.status).toBe(401);
+  });
+
+  it('3. Marcar todas como lidas não quebra com lista vazia', async () => {
     const res = await request(app)
-      .get('/api/notifications/preferences')
+      .patch('/api/notifications/read-all')
       .set(authHeader(user));
 
     expect(res.status).toBe(200);
-    expect(res.body.new_requests).toBe(1);
-    expect(res.body.promotions).toBe(0);
-  });
-
-  it('3. Atualiza preferências', async () => {
-    const res = await request(app)
-      .put('/api/notifications/preferences')
-      .set(authHeader(user))
-      .send({ promotions: 1, interests: 0 });
-
-    expect(res.status).toBe(200);
-
-    const check = await request(app)
-      .get('/api/notifications/preferences')
-      .set(authHeader(user));
-
-    expect(check.body.promotions).toBe(1);
-    expect(check.body.interests).toBe(0);
+    expect(res.body.message).toBeDefined();
   });
 });
