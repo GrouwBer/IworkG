@@ -80,65 +80,8 @@ import { requireAuth } from '../middleware/auth';
 const router = Router();
 
 // ──────────────────────────────────────────────
-// GET /api/providers/:id — Public profile view
-// ──────────────────────────────────────────────
-router.get('/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  const provider = db.prepare(`
-    SELECT
-      u.id, u.name, u.avatar_url, u.phone, u.email,
-      pp.description, pp.rating, pp.review_count,
-      pp.latitude, pp.longitude, pp.city, pp.state,
-      pp.active,
-      c.id as category_id, c.name as category_name,
-      c.slug as category_slug, c.icon as category_icon
-    FROM provider_profiles pp
-    JOIN users u ON u.id = pp.user_id
-    JOIN categories c ON c.id = pp.category_id
-    WHERE pp.user_id = ? AND pp.active = 1
-  `).get(id) as any;
-
-  if (!provider) {
-    res.status(404).json({ error: 'Prestador não encontrado.' });
-    return;
-  }
-
-  // Get portfolio images
-  const portfolio = db.prepare(`
-    SELECT id, image_url, caption, sort_order
-    FROM provider_portfolio
-    WHERE provider_id = (
-      SELECT id FROM provider_profiles WHERE user_id = ?
-    )
-    ORDER BY sort_order ASC, created_at DESC
-  `).all(id);
-
-  res.json({
-    id: provider.id,
-    name: provider.name,
-    avatarUrl: provider.avatar_url,
-    phone: provider.phone,
-    email: provider.email,
-    description: provider.description,
-    rating: provider.rating,
-    reviewCount: provider.review_count,
-    latitude: provider.latitude,
-    longitude: provider.longitude,
-    city: provider.city,
-    state: provider.state,
-    category: {
-      id: provider.category_id,
-      name: provider.category_name,
-      slug: provider.category_slug,
-      icon: provider.category_icon,
-    },
-    portfolio,
-  });
-});
-
-// ──────────────────────────────────────────────
 // GET /api/providers/profile/mine — Own profile (for editing)
+// MUST be defined BEFORE /:id to prevent Express route collision
 // ──────────────────────────────────────────────
 router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -194,6 +137,64 @@ router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
           categoryIcon: profile.category_icon,
         }
       : null,
+    portfolio,
+  });
+});
+
+// ──────────────────────────────────────────────
+// GET /api/providers/:id — Public profile view
+// ──────────────────────────────────────────────
+router.get('/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const provider = db.prepare(`
+    SELECT
+      u.id, u.name, u.avatar_url, u.phone, u.email,
+      pp.description, pp.rating, pp.review_count,
+      pp.latitude, pp.longitude, pp.city, pp.state,
+      pp.active,
+      c.id as category_id, c.name as category_name,
+      c.slug as category_slug, c.icon as category_icon
+    FROM provider_profiles pp
+    JOIN users u ON u.id = pp.user_id
+    JOIN categories c ON c.id = pp.category_id
+    WHERE pp.user_id = ? AND pp.active = 1
+  `).get(id) as any;
+
+  if (!provider) {
+    res.status(404).json({ error: 'Prestador não encontrado.' });
+    return;
+  }
+
+  // Get portfolio images
+  const portfolio = db.prepare(`
+    SELECT id, image_url, caption, sort_order
+    FROM provider_portfolio
+    WHERE provider_id = (
+      SELECT id FROM provider_profiles WHERE user_id = ?
+    )
+    ORDER BY sort_order ASC, created_at DESC
+  `).all(id);
+
+  res.json({
+    id: provider.id,
+    name: provider.name,
+    avatarUrl: provider.avatar_url,
+    phone: provider.phone,
+    email: provider.email,
+    description: provider.description,
+    rating: provider.rating,
+    reviewCount: provider.review_count,
+    latitude: provider.latitude,
+    longitude: provider.longitude,
+    city: provider.city,
+    state: provider.state,
+    category: {
+      id: provider.category_id,
+      name: provider.category_name,
+      slug: provider.category_slug,
+      icon: provider.category_icon,
+    },
     portfolio,
   });
 });

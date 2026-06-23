@@ -66,7 +66,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS refresh_tokens (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    token TEXT UNIQUE NOT NULL,
+    token_jti TEXT UNIQUE NOT NULL,
     expires_at TEXT NOT NULL,
     revoked INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -88,6 +88,16 @@ db.exec(`
     expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- Indexes for fast lookups
+  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+  CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+  CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+  CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens(token_jti);
+  CREATE INDEX IF NOT EXISTS idx_otp_codes_phone ON otp_codes(phone);
+  CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_jti ON blacklisted_tokens(token_jti);
+  CREATE INDEX IF NOT EXISTS idx_provider_profiles_category ON provider_profiles(category_id);
+  CREATE INDEX IF NOT EXISTS idx_provider_profiles_active ON provider_profiles(active);
 `);
 
 // ── Categories (issue #9) ──
@@ -218,19 +228,6 @@ for (const cat of seedCategories) {
   insertCat.run(cat.id, cat.name, cat.slug, cat.icon);
 }
 
-// ── Provider portfolio (issue #10) ──
-db.exec(`
-  CREATE TABLE IF NOT EXISTS provider_portfolio (
-    id TEXT PRIMARY KEY,
-    provider_id TEXT NOT NULL,
-    image_url TEXT NOT NULL,
-    caption TEXT,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
-  );
-`);
-
 // ── Helper: get all categories ──
 export function getAllCategories() {
   return db.prepare('SELECT id, name, slug, icon FROM categories ORDER BY name').all();
@@ -257,45 +254,71 @@ export function searchProviders(filters: SearchFilters = {}) {
     offset = 0,
   } = filters;
 
-  let sql = `
+  const { whereClause, params: whereParams } = buildSearchWhere(filters);
+
+  const sql = `
     SELECT 
-      u.id, u.name, u.avatar_url, u.phone,
+      u.id, u.name, u.avatar_url,
       pp.description, pp.rating, pp.review_count,
       pp.latitude, pp.longitude, pp.city, pp.state,
       c.name as category_name, c.slug as category_slug, c.icon as category_icon
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
     JOIN categories c ON c.id = pp.category_id
-    WHERE pp.active = 1
-  `;
+    WHERE pp.active = 1${whereClause}`;
 
+  let orderBy: string;
+  const orderParams: any[] = [];
+
+  if (lat !== undefined && lng !== undefined) {
+    // Simplified proximity: squared Euclidean (good enough for < 100km)
+    orderBy = ` ORDER BY (
+      (pp.latitude - ?) * (pp.latitude - ?) + (pp.longitude - ?) * (pp.longitude - ?)
+    ) ASC`;
+    orderParams.push(lat, lat, lng, lng);
+  } else {
+    orderBy = ' ORDER BY pp.rating DESC, pp.review_count DESC';
+  }
+
+  const finalSql = sql + orderBy + ' LIMIT ? OFFSET ?';
+  const allParams = [...whereParams, ...orderParams, limit, offset];
+
+  return db.prepare(finalSql).all(...allParams);
+}
+
+/**
+ * Count total providers matching search filters (for pagination).
+ */
+export function countProviders(filters: SearchFilters = {}): number {
+  const { whereClause, params } = buildSearchWhere(filters);
+
+  const sql = `
+    SELECT COUNT(*) as total
+    FROM provider_profiles pp
+    JOIN users u ON u.id = pp.user_id
+    WHERE pp.active = 1${whereClause}`;
+
+  const row = db.prepare(sql).get(...params) as any;
+  return row.total;
+}
+
+function buildSearchWhere(filters: SearchFilters): { whereClause: string; params: any[] } {
+  const { category_id, query } = filters;
   const params: any[] = [];
+  let whereClause = '';
 
   if (category_id) {
-    sql += ' AND pp.category_id = ?';
+    whereClause += ' AND pp.category_id = ?';
     params.push(category_id);
   }
 
   if (query) {
-    sql += ' AND (u.name LIKE ? OR pp.description LIKE ?)';
+    whereClause += ' AND (u.name LIKE ? OR pp.description LIKE ?)';
     const like = `%${query}%`;
     params.push(like, like);
   }
 
-  if (lat !== undefined && lng !== undefined) {
-    // Simplified proximity: squared Euclidean (good enough for < 100km)
-    sql += ` ORDER BY (
-      (pp.latitude - ?) * (pp.latitude - ?) + (pp.longitude - ?) * (pp.longitude - ?)
-    ) ASC`;
-    params.push(lat, lat, lng, lng);
-  } else {
-    sql += ' ORDER BY pp.rating DESC, pp.review_count DESC';
-  }
-
-  sql += ' LIMIT ? OFFSET ?';
-  params.push(limit, offset);
-
-  return db.prepare(sql).all(...params);
+  return { whereClause, params };
 }
 
 /** Count total providers matching search filters (for pagination). */
