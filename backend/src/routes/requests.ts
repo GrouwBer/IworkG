@@ -90,6 +90,12 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
 
   const rows = db.prepare(sql).all(...params) as any[];
 
+  // Count total (without LIMIT/OFFSET)
+  const countSql = sql.replace(/SELECT .*? FROM/, 'SELECT COUNT(*) as total FROM')
+    .replace(/ LIMIT \? OFFSET \?$/, '');
+  const countParams = params.slice(0, params.length - 2);
+  const totalRow = db.prepare(countSql).get(...countParams) as any;
+
   res.json({
     requests: rows.map(r => ({
       id: r.id,
@@ -113,6 +119,8 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
         avatarUrl: r.client_avatar,
       },
     })),
+    total: totalRow.total,
+    hasMore: offset + limit < totalRow.total,
   });
 });
 

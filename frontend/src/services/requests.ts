@@ -4,12 +4,10 @@ export interface ServiceRequest {
   id: string;
   title: string;
   description: string | null;
-  category_id: string | null;
   categoryId: string | null;
   category: { name: string; icon: string } | null;
   urgency: string;
   photoUrl: string | null;
-  photo_url: string | null;
   latitude: number | null;
   longitude: number | null;
   city: string | null;
@@ -17,8 +15,6 @@ export interface ServiceRequest {
   address: string | null;
   status: 'open' | 'in_progress' | 'completed' | 'cancelled';
   interestCount: number;
-  interest_count: number;
-  created_at: string;
   createdAt: string;
   client?: {
     id: string;
@@ -110,6 +106,28 @@ export interface ListRequestsParams {
   offset?: number;
 }
 
+// ── Helper: transform snake_case from backend to camelCase ──
+function toCamelCase(r: any): ServiceRequest {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    categoryId: r.categoryId ?? r.category_id ?? null,
+    category: r.category || (r.category_name ? { name: r.category_name, icon: r.category_icon } : null),
+    urgency: r.urgency,
+    photoUrl: r.photoUrl ?? r.photo_url ?? null,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    city: r.city,
+    state: r.state,
+    address: r.address,
+    status: r.status,
+    interestCount: r.interestCount ?? r.interest_count ?? 0,
+    createdAt: r.createdAt ?? r.created_at,
+    client: r.client ? r.client : (r.client_id ? { id: r.client_id, name: r.client_name, avatarUrl: r.client_avatar } : undefined),
+  };
+}
+
 export const requestService = {
   // ── Issue #13: Mural de Pedidos ──
 
@@ -118,14 +136,20 @@ export const requestService = {
     return response;
   },
 
-  async listRequests(params?: ListRequestsParams): Promise<{ requests: ServiceRequest[] }> {
+  async listRequests(params?: ListRequestsParams): Promise<{ requests: ServiceRequest[]; total?: number; hasMore?: boolean }> {
     const { data } = await api.get('/api/requests', { params });
-    return data;
+    return {
+      requests: (data.requests || []).map(toCamelCase),
+      total: data.total,
+      hasMore: data.hasMore,
+    };
   },
 
   async getMyRequests(): Promise<{ requests: ServiceRequest[] }> {
     const { data } = await api.get('/api/requests/mine');
-    return data;
+    return {
+      requests: (data.requests || []).map(toCamelCase),
+    };
   },
 
   async updateRequest(id: string, data: { status: string }): Promise<{ message: string; status: string }> {

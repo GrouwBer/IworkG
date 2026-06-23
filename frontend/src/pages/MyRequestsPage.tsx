@@ -111,9 +111,9 @@ export default function MyRequestsPage() {
                       </div>
                     </div>
                     <div style={styles.cardRight}>
-                      <span style={styles.date}>{formatDate(req.createdAt || req.created_at)}</span>
+                      <span style={styles.date}>{formatDate(req.createdAt)}</span>
                       <span style={styles.interestCount}>
-                        👥 {req.interestCount || req.interest_count || 0}
+                        👥 {req.interestCount ?? 0}
                       </span>
                     </div>
                   </div>

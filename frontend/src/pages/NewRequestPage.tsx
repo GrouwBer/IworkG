@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { searchService, type Category } from '../services/search';
 import { requestService } from '../services/requests';
+import { getCachedLocation, cacheLocation, lookupCep } from '../services/location';
 
 // ── Location helpers (reused from SearchPage) ──
 const LOCATION_CACHE_KEY = 'iworkg_location';
