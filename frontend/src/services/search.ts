@@ -50,6 +50,7 @@ export const searchService = {
     category_id?: string;
     lat?: number;
     lng?: number;
+    radius_km?: number;
     query?: string;
     limit?: number;
     offset?: number;
