@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import OTPPage from './pages/OTPPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import DashboardPage from './pages/DashboardPage';
+import SearchPage from './pages/SearchPage';
 
 function App() {
   return (
@@ -25,8 +26,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/buscar"
+            element={
+              <ProtectedRoute>
+                <SearchPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Default redirect */}
+          <Route path="/" element={<Navigate to="/buscar" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
