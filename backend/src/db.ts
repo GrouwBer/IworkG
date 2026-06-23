@@ -84,10 +84,13 @@ db.exec(`
 `);
 
 // ── Migration: add raio_atuacao_km if column doesn't exist ──
-try {
-  db.exec(`ALTER TABLE provider_profiles ADD COLUMN raio_atuacao_km INTEGER NOT NULL DEFAULT 15`);
-} catch {
-  // Column already exists — ignore
+const hasRaioColumn = db.prepare(
+  "SELECT COUNT(*) as cnt FROM pragma_table_info('provider_profiles') WHERE name = 'raio_atuacao_km'"
+).get() as { cnt: number };
+
+if (!hasRaioColumn.cnt) {
+  db.exec(`ALTER TABLE provider_profiles ADD COLUMN raio_atuacao_km INTEGER DEFAULT 15`);
+  db.exec(`UPDATE provider_profiles SET raio_atuacao_km = 15 WHERE raio_atuacao_km IS NULL`);
 }
 
 // ── Service Requests (issue #15) ──
