@@ -680,13 +680,16 @@ export function getClientReviewForContact(clientId: string, contactId: string) {
 }
 
 export function createReview(data: { clientId: string; providerId: string; contactId?: string; rating: number; comment?: string }) {
-  const id = uuidv4();
-  db.prepare(`INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
-  const stats = db.prepare('SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?').get(data.providerId) as any;
-  db.prepare("UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
-  return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+  const insertAndUpdate = db.transaction(() => {
+    const id = uuidv4();
+    db.prepare(`INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
+    const stats = db.prepare('SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?').get(data.providerId) as any;
+    db.prepare("UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
+    return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+  });
+  return insertAndUpdate();
 }
 
 export function hasClientContactedProvider(clientId: string, providerUserId: string): boolean {
@@ -706,11 +709,11 @@ export function createReport(data: { reporterId: string; reportedProviderId: str
 }
 
 export function hasRecentReport(reporterId: string, providerId: string, hours: number = 24): boolean {
+  const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
   const row = db.prepare(`
     SELECT COUNT(*) as count FROM reports
-    WHERE reporter_id = ? AND reported_provider_id = ?
-    AND created_at > datetime('now', ? || ' hours')
-  `).get(reporterId, providerId, `-${hours}`) as any;
+    WHERE reporter_id = ? AND reported_provider_id = ? AND created_at > ?
+  `).get(reporterId, providerId, cutoff) as any;
   return row.count > 0;
 }
 

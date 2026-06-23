@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props { isOpen: boolean; onClose: () => void; onSubmit: (reason: string, description: string) => Promise<void> }
 const REASONS = ['Perfil falso', 'Comportamento inadequado', 'Golpe', 'Outro'];
@@ -8,6 +8,10 @@ export default function ReportModal({ isOpen, onClose, onSubmit }: Props) {
   const [desc, setDesc] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) { setReason(REASONS[0]); setDesc(''); setError(''); }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
