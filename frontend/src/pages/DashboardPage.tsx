@@ -54,6 +54,9 @@ export default function DashboardPage() {
           <button onClick={handleLogout} style={styles.logoutBtn}>
             Sair
           </button>
+          <button onClick={() => navigate('/ajuda')} style={styles.helpBtn} title="Ajuda">
+            ?
+          </button>
         </div>
       </header>
 
@@ -163,6 +166,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
   avatar: { width: '32px', height: '32px', borderRadius: '50%' },
   userName: { fontSize: '14px', fontWeight: 500 },
+  helpBtn: {
+    width: '32px',
+    height: '32px',
+    fontSize: '16px',
+    fontWeight: 700,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: 'inherit',
+  },
   logoutBtn: {
     padding: '6px 16px',
     fontSize: '13px',
