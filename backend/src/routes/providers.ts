@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '../middleware/auth';
-import db from '../db';
+import db, {
+  getProviderReviews, getClientReviewForContact, createReview, hasClientContactedProvider,
+} from '../db';
 
 const router = Router();
 
@@ -320,6 +322,35 @@ router.delete('/portfolio/:id', requireAuth, (req: Request, res: Response) => {
 
   db.prepare('DELETE FROM provider_portfolio WHERE id = ?').run(id);
   res.json({ message: 'Imagem removida do portfólio.' });
+});
+
+// ═══════════════════════════════════════════════
+// Review endpoints (issue #17)
+// ═══════════════════════════════════════════════
+
+/** POST /api/providers/:userId/reviews — Create a review */
+router.post('/:userId/reviews', requireAuth, (req: Request, res: Response) => {
+  const clientId = req.user!.id;
+  const { rating, comment, contactId } = req.body;
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.params.userId as string) as any;
+  if (!profile) { res.status(404).json({ error: 'Prestador não encontrado.' }); return; }
+  if (!rating || rating < 1 || rating > 5) { res.status(400).json({ error: 'Nota deve ser entre 1 e 5.' }); return; }
+  if (comment && comment.length > 300) { res.status(400).json({ error: 'Comentário máximo 300 caracteres.' }); return; }
+  if (!hasClientContactedProvider(clientId, profile.user_id)) { res.status(403).json({ error: 'Você precisa ter contatado este prestador antes de avaliar.' }); return; }
+  if (contactId && getClientReviewForContact(clientId, contactId)) { res.status(409).json({ error: 'Você já avaliou este contato.' }); return; }
+  if (profile.user_id === clientId) { res.status(403).json({ error: 'Você não pode avaliar a si mesmo.' }); return; }
+  try {
+    const review = createReview({ clientId, providerId: profile.id, contactId, rating, comment });
+    res.status(201).json({ id: (review as any).id, rating: (review as any).rating, comment: (review as any).comment, createdAt: (review as any).created_at });
+  } catch (err: any) { res.status(500).json({ error: 'Erro ao salvar avaliação.' }); }
+});
+
+/** GET /api/providers/:userId/reviews — List reviews (public) */
+router.get('/:userId/reviews', (req: Request, res: Response) => {
+  const profile = db.prepare('SELECT * FROM provider_profiles WHERE user_id = ?').get(req.params.userId as string) as any;
+  if (!profile) { res.status(404).json({ error: 'Prestador não encontrado.' }); return; }
+  const reviews = getProviderReviews(profile.id);
+  res.json((reviews as any[]).map((r: any) => ({ id: r.id, rating: r.rating, comment: r.comment, createdAt: r.created_at, client: { id: r.client_id, name: r.client_name, avatarUrl: r.client_avatar } })));
 });
 
 export default router;

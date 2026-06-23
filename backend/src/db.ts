@@ -234,6 +234,7 @@ db.exec(`
     rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
     comment TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client_id, contact_id),
     FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
     FOREIGN KEY (contact_id) REFERENCES contact_history(id) ON DELETE SET NULL
@@ -467,21 +468,24 @@ export function createReview(data: {
   clientId: string; providerId: string; contactId?: string;
   rating: number; comment?: string;
 }) {
-  const id = uuidv4();
-  db.prepare(`
-    INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
+  const insertAndUpdate = db.transaction(() => {
+    const id = uuidv4();
+    db.prepare(`
+      INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
 
-  // Update provider average rating and review count
-  const stats = db.prepare(
-    'SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?'
-  ).get(data.providerId) as any;
-  db.prepare(
-    'UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime(\'now\') WHERE id = ?'
-  ).run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
+    // Update provider average rating and review count
+    const stats = db.prepare(
+      'SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?'
+    ).get(data.providerId) as any;
+    db.prepare(
+      'UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime(\'now\') WHERE id = ?'
+    ).run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
 
-  return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+    return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+  });
+  return insertAndUpdate();
 }
 
 export function hasClientContactedProvider(clientId: string, providerId: string): boolean {
