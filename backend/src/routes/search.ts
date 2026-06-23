@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllCategories, searchProviders } from '../db';
+import { getAllCategories, searchProviders, countProviders } from '../db';
 
 const router = Router();
 
@@ -16,7 +16,7 @@ router.get('/categories', (_req: Request, res: Response) => {
  * GET /api/providers/search
  * Query params: ?category_id=X&lat=Y&lng=Z&query=text&limit=20&offset=0
  */
-router.get('/providers/search', (req: Request, res: Response) => {
+router.get('/providers/search', async (req: Request, res: Response) => {
   const {
     category_id,
     lat,
@@ -48,7 +48,10 @@ router.get('/providers/search', (req: Request, res: Response) => {
   }
 
   try {
-    const results = searchProviders(filters);
+    const [results, total] = await Promise.all([
+      searchProviders(filters),
+      countProviders(filters),
+    ]);
 
     res.json({
       results: results.map((row: any) => ({
@@ -68,6 +71,11 @@ router.get('/providers/search', (req: Request, res: Response) => {
           icon: row.category_icon,
         },
       })),
+      pagination: {
+        total,
+        limit: filters.limit || 20,
+        offset: filters.offset || 0,
+      },
       filters: {
         category_id: filters.category_id || null,
         lat: filters.lat || null,

@@ -23,6 +23,11 @@ export interface Provider {
 
 export interface SearchResponse {
   results: Provider[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
   filters: {
     category_id: string | null;
     lat: number | null;
