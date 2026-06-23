@@ -65,7 +65,7 @@ export interface ProviderProfile {
   longitude: number | null;
   rating: number;
   review_count: number;
-  active: boolean;
+  active: number; // SQLite INTEGER: 0 ou 1
   created_at: string;
   updated_at: string;
   // joined fields
@@ -197,6 +197,8 @@ export interface ProviderSearchResult {
   description: string | null;
   rating: number;
   review_count: number;
+  experience_years: number;
+  service_radius_km: number;
   latitude: number | null;
   longitude: number | null;
   city: string | null;

@@ -13,6 +13,7 @@ export default function SearchPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
@@ -48,6 +49,7 @@ export default function SearchPage() {
 
     setLoading(true);
     setMessage('');
+    setError(null);
 
     searchService.searchProviders(filters)
       .then((data) => {
@@ -60,7 +62,10 @@ export default function SearchPage() {
           );
         }
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setError('Erro ao conectar com o servidor. Tente novamente.');
+      })
       .finally(() => setLoading(false));
   }, [userLat, userLng, categories]);
 
@@ -138,6 +143,14 @@ export default function SearchPage() {
           <div style={styles.loadingState}>
             <span style={styles.skeletonIcon}>🔍</span>
             <p>Buscando prestadores proximos...</p>
+          </div>
+        ) : error ? (
+          <div style={styles.emptyState}>
+            <span style={styles.emptyIcon}>⚠️</span>
+            <p>{error}</p>
+            <button onClick={() => doSearch(selectedCategory, radius)} style={styles.clearBtn}>
+              Tentar novamente
+            </button>
           </div>
         ) : message ? (
           <div style={styles.emptyState}>

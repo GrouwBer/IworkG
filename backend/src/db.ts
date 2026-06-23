@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import type { SearchFilters } from './types';
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'iworkg.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -289,16 +290,6 @@ export function setProviderCategories(providerId: string, categoryIds: string[])
 // SEARCH (Haversine + paginated)
 // ═══════════════════════════════════════════
 
-export interface SearchFilters {
-  category_id?: string;
-  lat?: number;
-  lng?: number;
-  radius_km?: number;
-  query?: string;
-  limit?: number;
-  offset?: number;
-}
-
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -320,6 +311,8 @@ export function searchProviders(filters: SearchFilters = {}) {
     offset = 0,
   } = filters;
 
+  const useGeo = lat !== undefined && lng !== undefined;
+
   let sql = `
     SELECT
       pp.id, u.name, u.avatar_url,
@@ -338,6 +331,16 @@ export function searchProviders(filters: SearchFilters = {}) {
 
   const params: any[] = [];
 
+  // Bounding box — reduz drasticamente o conjunto de candidatos
+  if (useGeo && radius_km !== undefined) {
+    const deltaLat = radius_km / 111.32;
+    const deltaLng = radius_km / (111.32 * Math.cos(lat! * Math.PI / 180));
+    sql += ' AND pp.latitude BETWEEN ? AND ?';
+    params.push(lat! - deltaLat, lat! + deltaLat);
+    sql += ' AND pp.longitude BETWEEN ? AND ?';
+    params.push(lng! - deltaLng, lng! + deltaLng);
+  }
+
   if (category_id) {
     sql += ' AND pp.id IN (SELECT provider_id FROM provider_categories WHERE category_id = ?)';
     params.push(category_id);
@@ -350,15 +353,38 @@ export function searchProviders(filters: SearchFilters = {}) {
   }
 
   sql += ' GROUP BY pp.id';
+
+  // Sem geo: paginação direto no SQL (O(1) em memória)
+  if (!useGeo) {
+    const countRow = db.prepare(
+      `SELECT COUNT(*) as total FROM (${sql})`
+    ).get(...params) as any;
+
+    sql += ' ORDER BY pp.rating DESC, pp.review_count DESC';
+    sql += ' LIMIT ? OFFSET ?';
+
+    const rows = db.prepare(sql).all(...params, limit, offset) as any[];
+
+    const results = rows.map((row: any) => {
+      const avgRating = row.rating || 0;
+      const reviewCount = row.review_count || 0;
+      const C = 10;
+      const bayesianRating = (avgRating * reviewCount + 3.5 * C) / (reviewCount + C);
+      return { ...row, score: bayesianRating };
+    });
+
+    return { results, total: countRow.total };
+  }
+
+  // Com geo: bounding box reduz candidatos, Haversine + score no restante
   sql += ' ORDER BY pp.rating DESC, pp.review_count DESC';
 
   const rows = db.prepare(sql).all(...params) as any[];
 
-  // Post-process: Haversine + radius filter + Bayesian score
   let results = rows.map((row: any) => {
     let distance_km: number | undefined;
-    if (lat !== undefined && lng !== undefined && row.latitude != null && row.longitude != null) {
-      distance_km = haversineKm(lat, lng, row.latitude, row.longitude);
+    if (row.latitude != null && row.longitude != null) {
+      distance_km = haversineKm(lat!, lng!, row.latitude, row.longitude);
     }
 
     const avgRating = row.rating || 0;
@@ -368,7 +394,7 @@ export function searchProviders(filters: SearchFilters = {}) {
 
     let score: number;
     if (distance_km !== undefined) {
-      const distanceScore = Math.max(0, 1 - distance_km / (filters.radius_km || 50));
+      const distanceScore = Math.max(0, 1 - distance_km / (radius_km || 50));
       score = bayesianRating * 0.6 + distanceScore * 5 * 0.4;
     } else {
       score = bayesianRating;
@@ -381,9 +407,7 @@ export function searchProviders(filters: SearchFilters = {}) {
     results = results.filter((r: any) => r.distance_km === undefined || r.distance_km <= radius_km);
   }
 
-  if (lat !== undefined && lng !== undefined) {
-    results.sort((a: any, b: any) => b.score - a.score);
-  }
+  results.sort((a: any, b: any) => b.score - a.score);
 
   const total = results.length;
   results = results.slice(offset, offset + limit);
@@ -432,6 +456,9 @@ export function getProviderReviews(providerId: string) {
 }
 
 export function createReview(reviewerId: string, providerId: string, rating: number, comment: string | null) {
+  // Validate rating
+  if (rating < 1 || rating > 5) throw new Error('Nota deve ser entre 1 e 5.');
+
   // Prevent self-review
   const provider = db.prepare('SELECT user_id FROM provider_profiles WHERE id = ?').get(providerId) as any;
   if (!provider) throw new Error('Prestador nao encontrado.');
@@ -468,6 +495,10 @@ export function createServiceRequest(clientId: string, data: {
   latitude: number;
   longitude: number;
 }) {
+  // Validate FK
+  const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(data.category_id);
+  if (!cat) throw new Error('Categoria nao encontrada.');
+
   const id = uuidv4();
   db.prepare(`
     INSERT INTO service_requests (id, client_id, category_id, description, photo_url, urgency, latitude, longitude)
@@ -516,7 +547,12 @@ export function expressInterest(providerId: string, serviceRequestId: string) {
     INSERT OR IGNORE INTO interests (id, service_request_id, provider_id)
     VALUES (?, ?, ?)
   `).run(id, serviceRequestId, providerId);
-  return db.prepare('SELECT * FROM interests WHERE id = ?').get(id);
+
+  // Busca pelo par UNIQUE (service_request_id, provider_id) em vez do id,
+  // pois INSERT OR IGNORE pode nao ter inserido se ja existir
+  return db.prepare(
+    'SELECT * FROM interests WHERE service_request_id = ? AND provider_id = ?'
+  ).get(serviceRequestId, providerId);
 }
 
 export function getServiceInterests(serviceRequestId: string) {
@@ -538,6 +574,10 @@ export function createReport(reporterId: string, data: {
   reason: string;
   description?: string;
 }) {
+  // Validate FK
+  const provider = db.prepare('SELECT id FROM provider_profiles WHERE id = ?').get(data.reported_provider_id);
+  if (!provider) throw new Error('Prestador nao encontrado.');
+
   const id = uuidv4();
   db.prepare(`
     INSERT INTO reports (id, reporter_id, reported_provider_id, reason, description)
@@ -607,6 +647,10 @@ export function countPortfolioPhotos(providerId: string): number {
 // ═══════════════════════════════════════════
 
 export function toggleFavorite(userId: string, providerId: string): boolean {
+  // Validate FK
+  const provider = db.prepare('SELECT id FROM provider_profiles WHERE id = ?').get(providerId);
+  if (!provider) throw new Error('Prestador nao encontrado.');
+
   const existing = db.prepare(
     'SELECT * FROM favorites WHERE user_id = ? AND provider_id = ?'
   ).get(userId, providerId);
@@ -648,6 +692,10 @@ export function getUserFavorites(userId: string) {
 // ═══════════════════════════════════════════
 
 export function recordContact(userId: string, providerId: string) {
+  // Validate FK
+  const provider = db.prepare('SELECT id FROM provider_profiles WHERE id = ?').get(providerId);
+  if (!provider) throw new Error('Prestador nao encontrado.');
+
   const id = uuidv4();
   db.prepare(`
     INSERT INTO contact_history (id, user_id, provider_id) VALUES (?, ?, ?)

@@ -63,8 +63,8 @@ router.get('/providers/search', async (req: Request, res: Response) => {
       })),
       pagination: {
         total,
-        limit: filters.limit || 20,
-        offset: filters.offset || 0,
+        limit: filters.limit ?? 20,
+        offset: filters.offset ?? 0,
       },
       filters: {
         category_id: filters.category_id || null,
