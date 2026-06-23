@@ -72,8 +72,10 @@ router.get('/me', (req: Request, res: Response) => {
   const profile = getProviderProfile(userId);
   if (!profile) { res.status(404).json({ error: 'Perfil de prestador não encontrado.' }); return; }
   res.json({
-    id: profile.id, description: profile.description, experienceYears: 0, serviceRadiusKm: 10,
-    address: '', city: profile.city, state: profile.state,
+    id: profile.id, description: profile.description,
+    experienceYears: profile.experience_years || 0,
+    serviceRadiusKm: profile.service_radius_km || 10,
+    address: profile.address || '', city: profile.city, state: profile.state,
     rating: profile.rating, reviewCount: profile.review_count, active: !!profile.active,
     categories: getProviderCategories(profile.id), createdAt: profile.created_at,
   });
@@ -94,7 +96,7 @@ router.post('/portfolio/upload', upload.single('photo'), async (req: Request, re
 
   try {
     const result = await processAndSaveImage(req.file.buffer, req.file.originalname, profile.id);
-    const photo = addPortfolioPhoto(profile.id, { filename: result.filename, originalName: result.originalName, mimeType: result.mimeType, sizeBytes: result.sizeBytes, tag });
+    const photo = addPortfolioPhoto(profile.id, { filename: result.filename, original_name: result.originalName, mime_type: result.mimeType, size_bytes: result.sizeBytes, tag });
     res.status(201).json({ id: photo.id, tag: photo.tag, mimeType: photo.mime_type, sizeBytes: photo.size_bytes, originalName: photo.original_name, url: `/uploads/portfolio/${photo.filename}`, createdAt: photo.created_at, sortOrder: photo.sort_order });
   } catch (err: any) { res.status(400).json({ error: err.message || 'Erro ao processar imagem.' }); }
 });
