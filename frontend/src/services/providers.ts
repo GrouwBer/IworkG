@@ -93,4 +93,26 @@ export const providerService = {
   async removePortfolioImage(id: string): Promise<void> {
     await api.delete(`/api/providers/portfolio/${id}`);
   },
+
+  // ── Reviews (issue #17) ──
+
+  /** Get reviews for a provider */
+  async getReviews(providerId: string): Promise<ReviewItem[]> {
+    const { data } = await api.get<ReviewItem[]>(`/api/providers/${providerId}/reviews`);
+    return data;
+  },
+
+  /** Submit a review */
+  async submitReview(providerId: string, payload: {
+    rating: number; comment?: string; contactId?: string;
+  }): Promise<ReviewResponse> {
+    const { data } = await api.post<ReviewResponse>(`/api/providers/${providerId}/reviews`, payload);
+    return data;
+  },
 };
+
+export interface ReviewItem {
+  id: string; rating: number; comment: string | null; createdAt: string;
+  client: { id: string; name: string; avatarUrl: string | null };
+}
+export interface ReviewResponse { id: string; rating: number; comment: string | null; createdAt: string }

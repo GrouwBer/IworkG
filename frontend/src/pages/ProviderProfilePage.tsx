@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { providerService, type ProviderProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
+import ReviewSection from '../components/ReviewSection';
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e2e8f0" rx="60"/><text x="60" y="68" text-anchor="middle" font-size="44" fill="#94a3b8">👤</text></svg>'
@@ -138,6 +139,9 @@ export default function ProviderProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Reviews Section (issue #17) */}
+        {id && <ReviewSection providerId={id} />}
       </main>
 
       {/* Lightbox */}

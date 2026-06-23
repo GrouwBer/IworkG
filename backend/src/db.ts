@@ -224,6 +224,22 @@ db.exec(`
   );
 `);
 
+// ── Reviews (issue #17) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    contact_id TEXT,
+    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
+    FOREIGN KEY (contact_id) REFERENCES contact_history(id) ON DELETE SET NULL
+  );
+`);
+
 // ── Migrations (safe ALTER TABLE for existing databases) ──
 try { db.exec("ALTER TABLE users ADD COLUMN deleted_at TEXT"); } catch {}
 try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'phone'"); } catch {}
@@ -424,6 +440,55 @@ export function updateWizardState(userId: string, step: number, data: Record<str
 
 export function deleteWizardState(userId: string) {
   db.prepare('DELETE FROM provider_wizard_state WHERE user_id = ?').run(userId);
+}
+
+// ═══════════════════════════════════════════
+// REVIEWS (issue #17)
+// ═══════════════════════════════════════════
+
+export function getProviderReviews(providerId: string) {
+  return db.prepare(`
+    SELECT r.id, r.rating, r.comment, r.created_at,
+           u.id as client_id, u.name as client_name, u.avatar_url as client_avatar
+    FROM reviews r
+    JOIN users u ON u.id = r.client_id
+    WHERE r.provider_id = ?
+    ORDER BY r.created_at DESC
+  `).all(providerId);
+}
+
+export function getClientReviewForContact(clientId: string, contactId: string) {
+  return db.prepare(
+    'SELECT * FROM reviews WHERE client_id = ? AND contact_id = ?'
+  ).get(clientId, contactId);
+}
+
+export function createReview(data: {
+  clientId: string; providerId: string; contactId?: string;
+  rating: number; comment?: string;
+}) {
+  const id = uuidv4();
+  db.prepare(`
+    INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
+
+  // Update provider average rating and review count
+  const stats = db.prepare(
+    'SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?'
+  ).get(data.providerId) as any;
+  db.prepare(
+    'UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime(\'now\') WHERE id = ?'
+  ).run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
+
+  return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+}
+
+export function hasClientContactedProvider(clientId: string, providerId: string): boolean {
+  const row = db.prepare(
+    'SELECT COUNT(*) as count FROM contact_history WHERE client_id = ? AND provider_id = ?'
+  ).get(clientId, providerId) as any;
+  return row.count > 0;
 }
 
 export default db;
