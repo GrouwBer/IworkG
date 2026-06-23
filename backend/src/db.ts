@@ -112,8 +112,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_refresh_tokens_jti ON refresh_tokens(token_jti);
   CREATE INDEX IF NOT EXISTS idx_otp_codes_phone ON otp_codes(phone);
   CREATE INDEX IF NOT EXISTS idx_blacklisted_tokens_jti ON blacklisted_tokens(token_jti);
-  CREATE INDEX IF NOT EXISTS idx_provider_profiles_category ON provider_profiles(category_id);
-  CREATE INDEX IF NOT EXISTS idx_provider_profiles_active ON provider_profiles(active);
 
   CREATE TABLE IF NOT EXISTS recovery_tokens (
     id TEXT PRIMARY KEY,
@@ -167,6 +165,12 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
   );
+`);
+
+// Indexes for provider_profiles
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_provider_profiles_category ON provider_profiles(category_id);
+  CREATE INDEX IF NOT EXISTS idx_provider_profiles_active ON provider_profiles(active);
 `);
 
 // ── Migrations: columns added post-initial-schema (safe ALTER TABLE)
