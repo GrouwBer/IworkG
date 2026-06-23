@@ -151,6 +151,11 @@ db.exec(`
   );
 `);
 
+// Migrations: columns added post-initial-schema (safe ALTER TABLE)
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km INTEGER DEFAULT 15"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT"); } catch {}
+
 // ── Service Requests (issue #15) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS service_requests (
@@ -458,6 +463,13 @@ export function searchOpenRequests(filters: OpenRequestFilters = {}) {
       CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,
       ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) ASC`;
     orderParams.push(lat, lat, lng, lng);
+
+    // Apply radius filter (W2): squared Euclidean distance <= radius_km^2
+    if (radius_km !== undefined && radius_km > 0) {
+      const maxDegSq = (radius_km / 111) * (radius_km / 111);
+      where += ` AND ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) <= ?`;
+      params.push(lat, lat, lng, lng, maxDegSq);
+    }
   } else {
     orderBy = ` ORDER BY
       CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,

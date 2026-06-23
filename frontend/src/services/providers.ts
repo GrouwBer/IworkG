@@ -51,6 +51,9 @@ export interface OwnProfile {
     categoryName: string | null;
     categorySlug: string | null;
     categoryIcon: string | null;
+    experienceYears: number;
+    serviceRadiusKm: number;
+    address: string;
   } | null;
   portfolio: PortfolioItem[];
 }

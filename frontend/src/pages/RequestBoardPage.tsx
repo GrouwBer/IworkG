@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { requestService, type OpenRequest } from '../services/requests';
 import { searchService, type Category } from '../services/search';
-import { providerService } from '../services/provider';
+import { providerService } from '../services/providers';
 
 const URGENCY_COLORS: Record<string, string> = {
   Alta: '#dc2626',
@@ -23,6 +23,7 @@ export default function RequestBoardPage() {
 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [providerLocation, setProviderLocation] = useState<{ lat: number; lng: number; radius: number } | null>(null);
+  const initialized = useRef(false);
 
   // Load categories + provider profile
   useEffect(() => {
@@ -30,31 +31,50 @@ export default function RequestBoardPage() {
       .then(setCategories)
       .catch(() => {});
 
-    providerService.getMyProfile()
-      .then(profile => {
-        // Provider profile doesn't expose lat/lng directly — use address as fallback
-        // The radius comes from serviceRadiusKm
-        setProviderLocation({
-          lat: 0, lng: 0,
-          radius: profile.serviceRadiusKm || 20,
-        });
-        // Try to get GPS location from browser
+    providerService.getOwnProfile()
+      .then(profileData => {
+        const radius = profileData.profile?.serviceRadiusKm || 20;
+        // Try GPS first; fallback to profile coordinates
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
-            pos => setProviderLocation({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              radius: profile.serviceRadiusKm || 20,
-            }),
-            () => {} // use default
+            pos => {
+              setProviderLocation({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                radius,
+              });
+              initialized.current = true;
+            },
+            () => {
+              // GPS denied/unavailable — use profile lat/lng if available
+              if (profileData.profile?.latitude && profileData.profile?.longitude) {
+                setProviderLocation({
+                  lat: profileData.profile.latitude,
+                  lng: profileData.profile.longitude,
+                  radius,
+                });
+              }
+              initialized.current = true;
+            }
           );
+        } else if (profileData.profile?.latitude && profileData.profile?.longitude) {
+          setProviderLocation({
+            lat: profileData.profile.latitude,
+            lng: profileData.profile.longitude,
+            radius,
+          });
+          initialized.current = true;
+        } else {
+          initialized.current = true;
         }
       })
       .catch(() => setError('Perfil de prestador não encontrado. Cadastre-se primeiro.'));
   }, []);
 
-  // Fetch open requests
+  // Fetch open requests (only after initialization to avoid (0,0) race — W1)
   useEffect(() => {
+    if (!initialized.current) return;
+
     setLoading(true);
     setMessage('');
 

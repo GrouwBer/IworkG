@@ -50,6 +50,7 @@ router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
     SELECT
       pp.id as profile_id, pp.description, pp.rating, pp.review_count,
       pp.latitude, pp.longitude, pp.city, pp.state, pp.category_id,
+      pp.experience_years, pp.service_radius_km, pp.address,
       c.name as category_name, c.slug as category_slug, c.icon as category_icon
     FROM provider_profiles pp
     LEFT JOIN categories c ON c.id = pp.category_id
@@ -95,6 +96,9 @@ router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
           categoryName: profile.category_name,
           categorySlug: profile.category_slug,
           categoryIcon: profile.category_icon,
+          experienceYears: profile.experience_years || 0,
+          serviceRadiusKm: profile.service_radius_km || 15,
+          address: profile.address || '',
         }
       : null,
     portfolio,
