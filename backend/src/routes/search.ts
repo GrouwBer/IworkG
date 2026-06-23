@@ -55,6 +55,11 @@ router.get('/providers/search', async (req: Request, res: Response) => {
         state: row.state,
         distanceKm: row.distance_km ? Math.round(row.distance_km * 10) / 10 : undefined,
         score: row.score ? Math.round(row.score * 100) / 100 : undefined,
+        category: {
+          name: (row.category_names || '').split(',')[0] || '',
+          slug: (row.category_slugs || '').split(',')[0] || '',
+          icon: (row.category_icons || '').split(',')[0] || '',
+        },
       })),
       pagination: {
         total,

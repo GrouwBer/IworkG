@@ -1,8 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-
-const { v4: uuidv4 } = require('uuid');
+import { v4 as uuidv4 } from 'uuid';
 
 const DB_PATH = path.join(__dirname, '..', 'data', 'iworkg.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -322,21 +321,25 @@ export function searchProviders(filters: SearchFilters = {}) {
   } = filters;
 
   let sql = `
-    SELECT DISTINCT
+    SELECT
       pp.id, u.name, u.avatar_url,
       pp.description, pp.rating, pp.review_count,
       pp.latitude, pp.longitude, pp.city, pp.state,
-      pp.experience_years, pp.service_radius_km
+      pp.experience_years, pp.service_radius_km,
+      GROUP_CONCAT(DISTINCT c.name) as category_names,
+      GROUP_CONCAT(DISTINCT c.slug) as category_slugs,
+      GROUP_CONCAT(DISTINCT c.icon) as category_icons
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
     LEFT JOIN provider_categories pc ON pc.provider_id = pp.id
+    LEFT JOIN categories c ON c.id = pc.category_id
     WHERE pp.active = 1
   `;
 
   const params: any[] = [];
 
   if (category_id) {
-    sql += ' AND pc.category_id = ?';
+    sql += ' AND pp.id IN (SELECT provider_id FROM provider_categories WHERE category_id = ?)';
     params.push(category_id);
   }
 
@@ -346,6 +349,7 @@ export function searchProviders(filters: SearchFilters = {}) {
     params.push(like, like);
   }
 
+  sql += ' GROUP BY pp.id';
   sql += ' ORDER BY pp.rating DESC, pp.review_count DESC';
 
   const rows = db.prepare(sql).all(...params) as any[];
@@ -388,8 +392,29 @@ export function searchProviders(filters: SearchFilters = {}) {
 }
 
 export function countProviders(filters: SearchFilters = {}): number {
-  const { total } = searchProviders({ ...filters, limit: 100000, offset: 0 });
-  return total;
+  const { category_id, query } = filters;
+
+  let sql = `
+    SELECT COUNT(DISTINCT pp.id) as total
+    FROM provider_profiles pp
+    JOIN users u ON u.id = pp.user_id
+    WHERE pp.active = 1
+  `;
+  const params: any[] = [];
+
+  if (category_id) {
+    sql += ' AND pp.id IN (SELECT provider_id FROM provider_categories WHERE category_id = ?)';
+    params.push(category_id);
+  }
+
+  if (query) {
+    sql += ' AND (u.name LIKE ? OR pp.description LIKE ?)';
+    const like = '%' + query + '%';
+    params.push(like, like);
+  }
+
+  const row = db.prepare(sql).get(...params) as any;
+  return row.total;
 }
 
 // ═══════════════════════════════════════════
@@ -407,6 +432,11 @@ export function getProviderReviews(providerId: string) {
 }
 
 export function createReview(reviewerId: string, providerId: string, rating: number, comment: string | null) {
+  // Prevent self-review
+  const provider = db.prepare('SELECT user_id FROM provider_profiles WHERE id = ?').get(providerId) as any;
+  if (!provider) throw new Error('Prestador nao encontrado.');
+  if (provider.user_id === reviewerId) throw new Error('Voce nao pode avaliar a si mesmo.');
+
   const id = uuidv4();
   db.prepare(`
     INSERT INTO reviews (id, reviewer_id, provider_id, rating, comment)
@@ -474,6 +504,13 @@ export function getServiceRequests(filters: { category_id?: string; status?: str
 // ═══════════════════════════════════════════
 
 export function expressInterest(providerId: string, serviceRequestId: string) {
+  // Validate existence
+  const provider = db.prepare('SELECT id FROM provider_profiles WHERE id = ?').get(providerId);
+  if (!provider) throw new Error('Prestador nao encontrado.');
+
+  const request = db.prepare('SELECT id FROM service_requests WHERE id = ?').get(serviceRequestId);
+  if (!request) throw new Error('Pedido nao encontrado.');
+
   const id = uuidv4();
   db.prepare(`
     INSERT OR IGNORE INTO interests (id, service_request_id, provider_id)
@@ -546,6 +583,14 @@ export function getPortfolioPhoto(photoId: string) {
 export function deletePortfolioPhoto(photoId: string) {
   const photo = getPortfolioPhoto(photoId);
   if (!photo) return null;
+
+  // Delete file from disk
+  const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'portfolio');
+  const filepath = path.join(UPLOAD_DIR, photo.filename);
+  if (fs.existsSync(filepath)) {
+    fs.unlinkSync(filepath);
+  }
+
   db.prepare('DELETE FROM portfolio_photos WHERE id = ?').run(photoId);
   return photo;
 }
@@ -584,13 +629,16 @@ export function isFavorited(userId: string, providerId: string): boolean {
 
 export function getUserFavorites(userId: string) {
   return db.prepare(`
-    SELECT pp.*, u.name, u.avatar_url, c.name as category_name, c.icon as category_icon
+    SELECT pp.*, u.name, u.avatar_url,
+      GROUP_CONCAT(DISTINCT c.name) as category_name,
+      GROUP_CONCAT(DISTINCT c.icon, '') as category_icon
     FROM favorites f
     JOIN provider_profiles pp ON pp.id = f.provider_id
     JOIN users u ON u.id = pp.user_id
     LEFT JOIN provider_categories pc ON pc.provider_id = pp.id
     LEFT JOIN categories c ON c.id = pc.category_id
     WHERE f.user_id = ?
+    GROUP BY pp.id
     ORDER BY pp.rating DESC
   `).all(userId);
 }
@@ -609,13 +657,15 @@ export function recordContact(userId: string, providerId: string) {
 
 export function getContactHistory(userId: string) {
   return db.prepare(`
-    SELECT ch.*, u.name as provider_name, c.name as provider_category
+    SELECT ch.*, u.name as provider_name,
+      GROUP_CONCAT(DISTINCT c.name) as provider_category
     FROM contact_history ch
     JOIN provider_profiles pp ON pp.id = ch.provider_id
     JOIN users u ON u.id = pp.user_id
     LEFT JOIN provider_categories pc ON pc.provider_id = pp.id
     LEFT JOIN categories c ON c.id = pc.category_id
     WHERE ch.user_id = ?
+    GROUP BY ch.id
     ORDER BY ch.created_at DESC
   `).all(userId);
 }
