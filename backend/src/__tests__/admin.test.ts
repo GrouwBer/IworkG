@@ -39,10 +39,10 @@ describe('GET /api/admin/stats', () => {
       .get('/api/admin/stats')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('totalUsers');
-    expect(res.body).toHaveProperty('totalProviders');
     expect(res.body).toHaveProperty('totalClients');
+    expect(res.body).toHaveProperty('totalProviders');
     expect(res.body).toHaveProperty('totalRequests');
+    expect(res.body).toHaveProperty('totalContacts');
   });
 
   it('deve retornar 403 para não-admin', async () => {

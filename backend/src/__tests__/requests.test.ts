@@ -110,9 +110,12 @@ describe('GET /api/requests/:id/interests', () => {
       .get(`/api/requests/${requestId}/interests`)
       .set('Authorization', `Bearer ${clientToken}`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body[0]).toHaveProperty('provider_id');
+    expect(res.body).toHaveProperty('interests');
+    expect(res.body).toHaveProperty('request');
+    expect(Array.isArray(res.body.interests)).toBe(true);
+    expect(res.body.interests.length).toBeGreaterThan(0);
+    expect(res.body.interests[0]).toHaveProperty('interestId');
+    expect(res.body.interests[0].provider).toHaveProperty('id');
   });
 
   it('deve retornar 401 sem token', async () => {
@@ -135,7 +138,8 @@ describe('GET /api/requests/open', () => {
       .get('/api/requests/open')
       .set('Authorization', `Bearer ${providerToken}`);
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveProperty('results');
+    expect(Array.isArray(res.body.results)).toBe(true);
   });
 
   it('deve retornar 401 sem token', async () => {
