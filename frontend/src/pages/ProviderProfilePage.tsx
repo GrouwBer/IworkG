@@ -1,50 +1,375 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { providerService, type ProviderProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
-import { providerService, type ProviderProfile, type PortfolioPhoto } from '../services/provider';
-import PortfolioGallery from '../components/PortfolioGallery';
+
+const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e2e8f0" rx="60"/><text x="60" y="68" text-anchor="middle" font-size="44" fill="#94a3b8">👤</text></svg>'
+);
 
 export default function ProviderProfilePage() {
-  const { user, isAuthenticated, loading: al } = useAuth();
-  const nav = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
-  const [photos, setPhotos] = useState<PortfolioPhoto[]>([]);
-  const [load, setLoad] = useState(true);
-  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-  useEffect(() => { if (al) return; if (!isAuthenticated) { nav('/login'); return; }
-    (async () => { try {
-      const p = await providerService.getMyProfile(); setProfile(p);
-      const pt = await providerService.getMyPortfolio(); setPhotos(pt.photos);
-    } catch (e: any) { if (e.response?.status === 404) setErr('Complete seu cadastro de prestador primeiro.'); else if (e.response?.status === 401) nav('/login'); else setErr('Erro ao carregar.'); } finally { setLoad(false); } })();
-  }, [isAuthenticated, al]);
+  const isOwner = user && profile && user.id === profile.id;
 
-  const refresh = async () => { try { const d = await providerService.getMyPortfolio(); setPhotos(d.photos); } catch {} };
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    providerService.getProviderProfile(id)
+      .then(setProfile)
+      .catch((err) => setError(err.response?.data?.error || 'Erro ao carregar perfil.'))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  if (al || load) return <C m="Carregando..." />;
-  if (err) return <C m={<><p style={{ color: '#dc2626' }}>{err}</p><button onClick={() => nav('/dashboard')} style={s.back}>Voltar ao Dashboard</button></>} />;
-  if (!profile) return null;
-
-  return <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'system-ui, sans-serif' }}>
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', background: '#1a1a2e', color: '#fff' }}><h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, cursor: 'pointer' }} onClick={() => nav('/dashboard')}>IworkG</h1><button onClick={() => nav('/dashboard')} style={s.back}>← Dashboard</button></header>
-    <main style={{ maxWidth: 800, margin: '24px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, flexShrink: 0 }}>{user?.name?.charAt(0).toUpperCase()}</div>
-          <div style={{ flex: 1 }}><h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 8px' }}>{user?.name}</h2><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{profile.categories.map(c => <span key={c.id} style={{ padding: '4px 10px', fontSize: 12, fontWeight: 500, background: '#eff6ff', color: '#1d4ed8', borderRadius: 20 }}>{c.icon} {c.name}</span>)}</div></div>
-          {profile.rating > 0 && <div style={{ padding: '8px 14px', background: '#fef3c7', borderRadius: 10, fontSize: 15, fontWeight: 600, color: '#92400e', flexShrink: 0 }}>⭐ {profile.rating.toFixed(1)}</div>}
-        </div>
-        <p style={{ fontSize: 15, lineHeight: 1.6, color: '#374151', marginBottom: 20 }}>{profile.description}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, padding: '16px 0 0', borderTop: '1px solid #f3f4f6' }}>
-          {[['🛠️', 'Experiência', `${profile.experienceYears} anos`], ['📍', 'Localização', `${profile.city}, ${profile.state}`], ['📏', 'Raio', `${profile.serviceRadiusKm} km`], ['📝', 'Avaliações', `${profile.reviewCount}`]].map(([ic, lb, vl]) => <div key={lb} style={{ display: 'flex', gap: 10, alignItems: 'center' }}><span style={{ fontSize: 20 }}>{ic}</span><div><span style={{ display: 'block', fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', fontWeight: 600 }}>{lb}</span><span style={{ fontSize: 14, color: '#374151', fontWeight: 500 }}>{vl}</span></div></div>)}
-        </div>
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <p style={{ fontSize: '16px', color: '#666' }}>Carregando perfil...</p>
       </div>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px' }}>📸 Portfólio — Antes e Depois</h3>
-        <PortfolioGallery photos={photos} isOwner={true} onChanged={refresh} />
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <div style={styles.loadingContainer}>
+        <p style={{ fontSize: '16px', color: '#dc2626' }}>{error || 'Perfil não encontrado.'}</p>
+        <button onClick={() => navigate(-1)} style={styles.backBtn}>Voltar</button>
       </div>
-    </main>
-  </div>;
+    );
+  }
+
+  const renderStars = (rating: number) => {
+    const full = Math.floor(rating);
+    const half = rating % 1 >= 0.5;
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      if (i < full) stars.push('★');
+      else if (i === full && half) stars.push('☆');
+      else stars.push('☆');
+    }
+    return stars.join('');
+  };
+
+  return (
+    <div style={styles.container}>
+      {/* Header/Nav */}
+      <header style={styles.header}>
+        <h1 style={styles.logo}>IworkG</h1>
+        <div style={styles.headerRight}>
+          {isOwner && (
+            <button
+              onClick={() => navigate('/prestador/editar')}
+              style={styles.editBtn}
+            >
+              ✏️ Editar Perfil
+            </button>
+          )}
+          <button onClick={() => navigate('/buscar')} style={styles.backNavBtn}>
+            ← Buscar
+          </button>
+        </div>
+      </header>
+
+      <main style={styles.main}>
+        {/* Profile Card */}
+        <div style={styles.profileCard}>
+          <img
+            src={profile.avatarUrl || DEFAULT_AVATAR}
+            alt={profile.name}
+            style={styles.avatar}
+          />
+          <h2 style={styles.name}>{profile.name}</h2>
+
+          {/* Category chip */}
+          <span style={styles.categoryChip}>
+            {profile.category.icon} {profile.category.name}
+          </span>
+
+          {/* Rating */}
+          <div style={styles.ratingRow}>
+            <span style={styles.stars}>{renderStars(profile.rating)}</span>
+            <span style={styles.ratingText}>
+              {profile.rating.toFixed(1)} ({profile.reviewCount} {profile.reviewCount === 1 ? 'avaliação' : 'avaliações'})
+            </span>
+          </div>
+
+          {/* Location */}
+          {profile.city && profile.state && (
+            <p style={styles.location}>📍 {profile.city}, {profile.state}</p>
+          )}
+
+          {/* Description */}
+          {profile.description && (
+            <p style={styles.bio}>{profile.description}</p>
+          )}
+
+          {/* Action Buttons */}
+          <div style={styles.actionRow}>
+            <button style={styles.contactBtn}>
+              💬 Entrar em Contato
+            </button>
+            <button style={styles.favBtn}>
+              ♡ Favoritar
+            </button>
+          </div>
+        </div>
+
+        {/* Portfolio Gallery */}
+        {profile.portfolio.length > 0 && (
+          <div style={styles.portfolioSection}>
+            <h3 style={styles.sectionTitle}>📸 Portfólio — Antes e Depois</h3>
+            <div style={styles.gallery}>
+              {profile.portfolio.map((item) => (
+                <div
+                  key={item.id}
+                  style={styles.galleryItem}
+                  onClick={() => setLightboxImg(item.imageUrl)}
+                >
+                  <img src={item.imageUrl} alt={item.caption || 'Portfólio'} style={styles.galleryImg} />
+                  {item.caption && <p style={styles.galleryCaption}>{item.caption}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div style={styles.lightbox} onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} alt="" style={styles.lightboxImg} />
+          <span style={styles.lightboxClose}>✕</span>
+        </div>
+      )}
+    </div>
+  );
 }
-function C({ m }: { m: any }) { return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', fontFamily: 'system-ui, sans-serif', textAlign: 'center' }}><div style={{ background: '#fff', padding: 48, borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>{m}</div></div>; }
-const s: Record<string, React.CSSProperties> = { back: { padding: '8px 16px', fontSize: 13, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } };
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    minHeight: '100vh',
+    backgroundColor: '#f5f5f5',
+    fontFamily: 'system-ui, sans-serif',
+  },
+  loadingContainer: {
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '16px',
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 32px',
+    backgroundColor: '#1a1a2e',
+    color: '#fff',
+  },
+  logo: { fontSize: '20px', fontWeight: 700, margin: 0 },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  editBtn: {
+    padding: '8px 18px',
+    fontSize: '13px',
+    fontWeight: 600,
+    backgroundColor: '#6366f1',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+  backNavBtn: {
+    padding: '8px 18px',
+    fontSize: '13px',
+    fontWeight: 500,
+    backgroundColor: 'transparent',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+  main: {
+    maxWidth: '720px',
+    margin: '32px auto',
+    padding: '0 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    padding: '32px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  avatar: {
+    width: '120px',
+    height: '120px',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '4px solid #e5e7eb',
+    marginBottom: '16px',
+  },
+  name: {
+    fontSize: '24px',
+    fontWeight: 700,
+    color: '#1f2937',
+    margin: '0 0 8px',
+  },
+  categoryChip: {
+    display: 'inline-block',
+    padding: '6px 16px',
+    backgroundColor: '#eef2ff',
+    color: '#4338ca',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: 600,
+    marginBottom: '12px',
+  },
+  ratingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+  },
+  stars: {
+    fontSize: '20px',
+    color: '#f59e0b',
+    letterSpacing: '2px',
+  },
+  ratingText: {
+    fontSize: '14px',
+    color: '#6b7280',
+  },
+  location: {
+    fontSize: '14px',
+    color: '#6b7280',
+    marginBottom: '8px',
+  },
+  bio: {
+    fontSize: '15px',
+    color: '#4b5563',
+    lineHeight: '1.6',
+    textAlign: 'center' as const,
+    maxWidth: '500px',
+    marginBottom: '20px',
+  },
+  actionRow: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap' as const,
+    justifyContent: 'center',
+  },
+  contactBtn: {
+    padding: '12px 28px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  favBtn: {
+    padding: '12px 28px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#fff',
+    color: '#dc2626',
+    border: '2px solid #fecaca',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  portfolioSection: {
+    backgroundColor: '#fff',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  sectionTitle: {
+    fontSize: '18px',
+    fontWeight: 600,
+    color: '#1f2937',
+    margin: '0 0 16px',
+  },
+  gallery: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '12px',
+  },
+  galleryItem: {
+    borderRadius: '10px',
+    overflow: 'hidden',
+    cursor: 'pointer',
+    border: '1px solid #e5e7eb',
+    transition: 'transform 0.2s',
+  },
+  galleryImg: {
+    width: '100%',
+    height: '160px',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  galleryCaption: {
+    padding: '8px 12px',
+    fontSize: '12px',
+    color: '#6b7280',
+    margin: 0,
+    backgroundColor: '#f9fafb',
+  },
+  lightbox: {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9998,
+    cursor: 'pointer',
+  },
+  lightboxImg: {
+    maxWidth: '90vw',
+    maxHeight: '85vh',
+    borderRadius: '8px',
+    objectFit: 'contain',
+  },
+  lightboxClose: {
+    position: 'absolute',
+    top: '24px',
+    right: '24px',
+    fontSize: '28px',
+    color: '#fff',
+    cursor: 'pointer',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: '50%',
+  },
+  backBtn: {
+    padding: '10px 24px',
+    fontSize: '14px',
+    backgroundColor: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+};
