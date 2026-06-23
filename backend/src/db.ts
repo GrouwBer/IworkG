@@ -169,6 +169,44 @@ db.exec(`
   );
 `);
 
+// ── Migrations: columns added post-initial-schema (safe ALTER TABLE)
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km INTEGER DEFAULT 15"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT"); } catch {}
+
+// ── Reviews (issue #17) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    contact_id TEXT,
+    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(client_id, contact_id),
+    FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE,
+    FOREIGN KEY (contact_id) REFERENCES contact_history(id) ON DELETE SET NULL
+  );
+`);
+
+// ── Reports (issue #18) ──
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    reporter_id TEXT NOT NULL,
+    reported_provider_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    reviewed_at TEXT,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
+  );
+`);
+
 // ── Service Requests (issue #15) ──
 db.exec(`
   CREATE TABLE IF NOT EXISTS service_requests (
@@ -271,6 +309,8 @@ try { db.exec("ALTER TABLE otp_codes ADD COLUMN identifier_type TEXT DEFAULT 'ph
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN experience_years INTEGER NOT NULL DEFAULT 0"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN service_radius_km REAL NOT NULL DEFAULT 10"); } catch {}
 try { db.exec("ALTER TABLE provider_profiles ADD COLUMN address TEXT NOT NULL DEFAULT ''"); } catch {}
+try { db.exec("ALTER TABLE provider_profiles ADD COLUMN contact_count INTEGER DEFAULT 0"); } catch {}
+try { db.exec("ALTER TABLE service_requests ADD COLUMN urgency TEXT DEFAULT 'Media'"); } catch {}
 
 // ── Seed categories ──
 const seedCategories = [
@@ -518,4 +558,271 @@ export function deleteWizardState(userId: string) {
   db.prepare('DELETE FROM provider_wizard_state WHERE user_id = ?').run(userId);
 }
 
+// ═══════════════════════════════════════════
+// SERVICE REQUESTS — Open search (issue #14)
+// ═══════════════════════════════════════════
+
+export interface OpenRequestFilters {
+  lat?: number;
+  lng?: number;
+  radius_km?: number;
+  category_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export function searchOpenRequests(filters: OpenRequestFilters = {}) {
+  const { lat, lng, radius_km, category_id, limit = 20, offset = 0 } = filters;
+  const params: any[] = [];
+  let where = " WHERE sr.status = 'open'";
+
+  if (category_id) {
+    where += ' AND sr.category_id = ?';
+    params.push(category_id);
+  }
+
+  let orderBy: string;
+  const orderParams: any[] = [];
+
+  if (lat !== undefined && lng !== undefined) {
+    orderBy = ` ORDER BY
+      CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,
+      ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) ASC`;
+    orderParams.push(lat, lat, lng, lng);
+
+    // Apply radius filter (W2): squared Euclidean distance <= radius_km^2
+    if (radius_km !== undefined && radius_km > 0) {
+      const maxDegSq = (radius_km / 111) * (radius_km / 111);
+      where += ` AND ((sr.latitude - ?) * (sr.latitude - ?) + (sr.longitude - ?) * (sr.longitude - ?)) <= ?`;
+      params.push(lat, lat, lng, lng, maxDegSq);
+    }
+  } else {
+    orderBy = ` ORDER BY
+      CASE sr.urgency WHEN 'Alta' THEN 0 WHEN 'Media' THEN 1 WHEN 'Baixa' THEN 2 END ASC,
+      sr.created_at DESC`;
+  }
+
+  const sql = `
+    SELECT
+      sr.id, sr.title, sr.description, sr.urgency, sr.status,
+      sr.latitude, sr.longitude, sr.city, sr.state, sr.created_at,
+      u.id as client_id, u.name as client_name, u.avatar_url as client_avatar,
+      c.name as category_name, c.slug as category_slug, c.icon as category_icon,
+      (SELECT COUNT(*) FROM interests i WHERE i.request_id = sr.id) as interest_count
+    FROM service_requests sr
+    JOIN users u ON u.id = sr.client_id
+    LEFT JOIN categories c ON c.id = sr.category_id
+    ${where}
+    ${orderBy}
+    LIMIT ? OFFSET ?`;
+
+  params.push(...orderParams, limit, offset);
+  return db.prepare(sql).all(...params);
+}
+
+// ADMIN — Category CRUD + Dashboard (issue #20)
+// ═══════════════════════════════════════════
+
+export interface CategoryRow {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string;
+  deleted_at: string | null;
+  provider_count?: number;
+}
+
+export function getCategoriesWithProviderCount(): CategoryRow[] {
+  return db.prepare(`
+    SELECT c.id, c.name, c.slug, c.icon, c.deleted_at,
+      (SELECT COUNT(*) FROM provider_profiles pp WHERE pp.category_id = c.id) as provider_count
+    FROM categories c
+    WHERE c.deleted_at IS NULL
+    ORDER BY c.name
+  `).all() as CategoryRow[];
+}
+
+export function createCategory(name: string, slug: string, icon: string): CategoryRow {
+  const id = `cat-${slug}`;
+  db.prepare(
+    'INSERT INTO categories (id, name, slug, icon) VALUES (?, ?, ?, ?)'
+  ).run(id, name, slug, icon);
+  return db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as CategoryRow;
+}
+
+export function updateCategory(id: string, data: { name?: string; slug?: string; icon?: string }): CategoryRow | null {
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as CategoryRow | undefined;
+  if (!existing) return null;
+
+  const name = data.name || existing.name;
+  const slug = data.slug || existing.slug;
+  const icon = data.icon || existing.icon;
+
+  db.prepare('UPDATE categories SET name = ?, slug = ?, icon = ? WHERE id = ?')
+    .run(name, slug, icon, id);
+  return db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as CategoryRow;
+}
+
+export function softDeleteCategory(id: string): { success: boolean; reason?: string } {
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND deleted_at IS NULL').get(id) as CategoryRow | undefined;
+  if (!existing) return { success: false, reason: 'Categoria não encontrada.' };
+
+  const linkedProviders = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM provider_profiles WHERE category_id = ?'
+  ).get(id) as any).cnt;
+
+  if (linkedProviders > 0) {
+    // Soft delete: mark as deleted
+    db.prepare("UPDATE categories SET deleted_at = datetime('now') WHERE id = ?").run(id);
+    return { success: true, reason: `Categoria inativada (${linkedProviders} prestadores vinculados).` };
+  }
+
+  // No linked providers — hard delete
+  db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  return { success: true };
+}
+
+export interface AdminStats {
+  totalClients: number;
+  totalProviders: number;
+  totalRequests: number;
+  totalContacts: number;
+  contactsByDay: { date: string; count: number }[];
+  topCategories: { name: string; icon: string; count: number }[];
+  conversionRate: { total: number; withInterest: number; rate: number };
+}
+
+export function getAdminStats(periodDays: number = 30): AdminStats {
+  const since = new Date();
+  since.setDate(since.getDate() - periodDays);
+  const sinceISO = since.toISOString();
+
+  const totalClients = (db.prepare(
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'client' AND deleted_at IS NULL AND created_at >= ?"
+  ).get(sinceISO) as any).cnt;
+
+  const totalProviders = (db.prepare(
+    "SELECT COUNT(*) as cnt FROM users WHERE role = 'provider' AND deleted_at IS NULL AND created_at >= ?"
+  ).get(sinceISO) as any).cnt;
+
+  const totalRequests = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM service_requests WHERE created_at >= ?'
+  ).get(sinceISO) as any).cnt;
+
+  const totalContacts = (db.prepare(
+    'SELECT COUNT(*) as cnt FROM contact_history WHERE created_at >= ?'
+  ).get(sinceISO) as any).cnt;
+
+  const contactsByDay = db.prepare(`
+    SELECT DATE(created_at) as date, COUNT(*) as count
+    FROM contact_history
+    WHERE created_at >= ?
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `).all(sinceISO) as { date: string; count: number }[];
+
+  const topCategories = db.prepare(`
+    SELECT c.name, c.icon, COUNT(sr.id) as count
+    FROM service_requests sr
+    JOIN categories c ON c.id = sr.category_id
+    WHERE sr.created_at >= ?
+    GROUP BY c.name
+    ORDER BY count DESC
+    LIMIT 5
+  `).all(sinceISO) as { name: string; icon: string; count: number }[];
+
+  const requestsWithInterest = (db.prepare(`
+    SELECT COUNT(DISTINCT sr.id) as cnt
+    FROM service_requests sr
+    JOIN interests i ON i.request_id = sr.id
+    WHERE sr.created_at >= ?
+  `).get(sinceISO) as any).cnt;
+
+  const conversionRate = {
+    total: totalRequests,
+    withInterest: requestsWithInterest,
+    rate: totalRequests > 0 ? Math.round((requestsWithInterest / totalRequests) * 100) : 0,
+  };
+
+  return {
+    totalClients,
+    totalProviders,
+    totalRequests,
+    totalContacts,
+    contactsByDay,
+    topCategories,
+    conversionRate,
+  };
+}
+
+// ═══════════════════════════════════════════
+// REVIEWS (issue #17)
+// ═══════════════════════════════════════════
+
+export function getProviderReviews(providerId: string) {
+  return db.prepare(`
+    SELECT r.id, r.rating, r.comment, r.created_at,
+           u.id as client_id, u.name as client_name, u.avatar_url as client_avatar
+    FROM reviews r JOIN users u ON u.id = r.client_id
+    WHERE r.provider_id = ? ORDER BY r.created_at DESC
+  `).all(providerId);
+}
+
+export function getClientReviewForContact(clientId: string, contactId: string) {
+  return db.prepare('SELECT * FROM reviews WHERE client_id = ? AND contact_id = ?').get(clientId, contactId);
+}
+
+export function createReview(data: { clientId: string; providerId: string; contactId?: string; rating: number; comment?: string }) {
+  const insertAndUpdate = db.transaction(() => {
+    const id = uuidv4();
+    db.prepare(`INSERT INTO reviews (id, client_id, provider_id, contact_id, rating, comment) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(id, data.clientId, data.providerId, data.contactId || null, data.rating, data.comment || null);
+    const stats = db.prepare('SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE provider_id = ?').get(data.providerId) as any;
+    db.prepare("UPDATE provider_profiles SET rating = ?, review_count = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(Math.round(stats.avg_rating * 10) / 10, stats.count, data.providerId);
+    return db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
+  });
+  return insertAndUpdate();
+}
+
+export function hasClientContactedProvider(clientId: string, providerUserId: string): boolean {
+  const row = db.prepare('SELECT COUNT(*) as count FROM contact_history WHERE client_id = ? AND provider_id = ?').get(clientId, providerUserId) as any;
+  return row.count > 0;
+}
+
+// ═══════════════════════════════════════════
+// REPORTS (issue #18)
+// ═══════════════════════════════════════════
+
+export function createReport(data: { reporterId: string; reportedProviderId: string; reason: string; description?: string }) {
+  const id = uuidv4();
+  db.prepare(`INSERT INTO reports (id, reporter_id, reported_provider_id, reason, description) VALUES (?, ?, ?, ?, ?)`)
+    .run(id, data.reporterId, data.reportedProviderId, data.reason, data.description || null);
+  return db.prepare('SELECT * FROM reports WHERE id = ?').get(id);
+}
+
+export function hasRecentReport(reporterId: string, providerId: string, hours: number = 24): boolean {
+  const cutoff = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+  const row = db.prepare(`
+    SELECT COUNT(*) as count FROM reports
+    WHERE reporter_id = ? AND reported_provider_id = ? AND created_at > ?
+  `).get(reporterId, providerId, cutoff) as any;
+  return row.count > 0;
+}
+
+export function getPendingReports() {
+  return db.prepare(`
+    SELECT rp.id, rp.reason, rp.description, rp.status, rp.created_at,
+           u.id as reporter_id, u.name as reporter_name,
+           pp.id as provider_id, pu.name as provider_name
+    FROM reports rp
+    JOIN users u ON u.id = rp.reporter_id
+    JOIN provider_profiles pp ON pp.id = rp.reported_provider_id
+    JOIN users pu ON pu.id = pp.user_id
+    WHERE rp.status = 'pending'
+    ORDER BY rp.created_at DESC
+  `).all();
+}
+
 export default db;
+

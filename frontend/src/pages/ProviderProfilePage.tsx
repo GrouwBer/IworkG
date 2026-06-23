@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { providerService, type ProviderProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
+import ContactModal from '../components/ContactModal';
+import ReviewSection from '../components/ReviewSection';
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" fill="#e2e8f0" rx="60"/><text x="60" y="68" text-anchor="middle" font-size="44" fill="#94a3b8">👤</text></svg>'
@@ -15,8 +17,35 @@ export default function ProviderProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   const isOwner = user && profile && user.id === profile.id;
+
+  const handleShare = async () => {
+    const shareUrl = `https://iwork.app/provider/${id}`;
+    const shareData = {
+      title: `${profile?.name} — IworkG`,
+      text: `Confira o perfil de ${profile?.name} no IworkG!`,
+      url: shareUrl,
+    };
+    try {
+      if (navigator.share && window.innerWidth <= 768) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('🔗 Link copiado para a área de transferência!');
+      }
+    } catch (err) {
+      // User cancelled share or clipboard failed — fallback
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('🔗 Link copiado para a área de transferência!');
+      } catch {
+        // Last resort
+        prompt('Copie o link abaixo:', shareUrl);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -111,11 +140,14 @@ export default function ProviderProfilePage() {
 
           {/* Action Buttons */}
           <div style={styles.actionRow}>
-            <button style={styles.contactBtn}>
+            <button onClick={() => setShowContactModal(true)} style={styles.contactBtn}>
               💬 Entrar em Contato
             </button>
             <button style={styles.favBtn}>
               ♡ Favoritar
+            </button>
+            <button onClick={handleShare} style={styles.shareBtn}>
+              📤 Compartilhar
             </button>
           </div>
         </div>
@@ -138,6 +170,9 @@ export default function ProviderProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Reviews + Report (issues #17, #18) */}
+        {id && <ReviewSection providerId={id} />}
       </main>
 
       {/* Lightbox */}
@@ -147,6 +182,15 @@ export default function ProviderProfilePage() {
           <span style={styles.lightboxClose}>✕</span>
         </div>
       )}
+
+      {/* Contact Modal */}
+      <ContactModal
+        open={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        providerId={profile.id}
+        providerName={profile.name}
+        providerPhone={profile.phone}
+      />
     </div>
   );
 }
@@ -292,6 +336,16 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#fff',
     color: '#dc2626',
     border: '2px solid #fecaca',
+    borderRadius: '10px',
+    cursor: 'pointer',
+  },
+  shareBtn: {
+    padding: '12px 28px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#f0fdf4',
+    color: '#16a34a',
+    border: '2px solid #bbf7d0',
     borderRadius: '10px',
     cursor: 'pointer',
   },

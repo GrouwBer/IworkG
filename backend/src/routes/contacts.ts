@@ -46,23 +46,47 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
 
 /**
  * POST /api/contacts — Record a contact (client contacted provider)
- * Body: { provider_id: string, contact_type?: string }
+ * Body: { provider_id: string, contact_type?: 'whatsapp' | 'phone' | 'direct' }
  */
 router.post('/', requireAuth, (req: Request, res: Response) => {
   const clientId = req.user!.id;
-  const { provider_id, contact_type = 'direct' } = req.body;
+  const { provider_id, contact_type = 'whatsapp' } = req.body;
 
   if (!provider_id) {
     res.status(400).json({ error: 'provider_id é obrigatório.' });
     return;
   }
 
+  // Validate contact_type
+  const validTypes = ['whatsapp', 'phone', 'direct', 'chat'];
+  const type = validTypes.includes(contact_type) ? contact_type : 'whatsapp';
+
+  // Check that provider exists and has phone
+  const provider = db.prepare(
+    'SELECT id, phone FROM users WHERE id = ? AND role IN (\'provider\', \'admin\')'
+  ).get(provider_id) as any;
+
+  if (!provider) {
+    res.status(404).json({ error: 'Prestador não encontrado.' });
+    return;
+  }
+
   const id = uuidv4();
   db.prepare(
     'INSERT INTO contact_history (id, client_id, provider_id, contact_type) VALUES (?, ?, ?, ?)'
-  ).run(id, clientId, provider_id, contact_type);
+  ).run(id, clientId, provider_id, type);
 
-  res.status(201).json({ contactId: id, message: 'Contato registrado no histórico.' });
+  // Increment contact counter on provider profile
+  db.prepare(
+    "UPDATE provider_profiles SET contact_count = COALESCE(contact_count, 0) + 1 WHERE user_id = ?"
+  ).run(provider_id);
+
+  res.status(201).json({
+    contactId: id,
+    contactType: type,
+    providerPhone: provider.phone || null,
+    message: 'Contato registrado no histórico.',
+  });
 });
 
 export default router;
