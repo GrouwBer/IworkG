@@ -57,7 +57,7 @@ router.put('/categories/:id', (req: Request, res: Response) => {
   const { name, slug, icon } = req.body;
 
   try {
-    const updated = updateCategory(id, { name, slug, icon });
+    const updated = updateCategory(id as string, { name, slug, icon });
     if (!updated) {
       res.status(404).json({ error: 'Categoria não encontrada.' });
       return;
@@ -74,7 +74,7 @@ router.delete('/categories/:id', (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const result = softDeleteCategory(id);
+    const result = softDeleteCategory(id as string);
     if (!result.success) {
       res.status(400).json({ error: result.reason || 'Erro ao excluir categoria.' });
       return;
