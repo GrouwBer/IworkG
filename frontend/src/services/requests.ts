@@ -15,6 +15,7 @@ export interface ServiceRequest {
   address: string | null;
   status: 'open' | 'in_progress' | 'completed' | 'cancelled';
   interestCount: number;
+  budget: number | null;
   createdAt: string;
   client?: {
     id: string;

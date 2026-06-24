@@ -35,16 +35,6 @@ export default function NotificationsPage() {
     }
   };
 
-  const _handleMarkAllRead = async () => {
-    const prev = [...notifications];
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    try {
-      await notificationService.markAllAsRead();
-    } catch {
-      setNotifications(prev); // rollback
-    }
-  };
-
   const unreadCount = notifications.filter(n => !n.read).length;
 
   if (loading) return <C m="Carregando notificações..." />;
