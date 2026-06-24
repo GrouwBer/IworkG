@@ -3,8 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireAuth, requireRole } from '../middleware/auth';
 import db, {
   getProviderReviews, getClientReviewForContact, createReview, hasClientContactedProvider,
-  createReport, hasRecentReport, getPendingReports, notifyUser,
+  createReport, hasRecentReport, getPendingReports,
 } from '../db';
+import { notifyUser } from '../services/notifications';
 
 const router = Router();
 

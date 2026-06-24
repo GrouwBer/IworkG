@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import db, { getNotificationPreferences, updateNotificationPreferences } from '../db';
+import db from '../db';
+import { getNotificationPreferences, updateNotificationPreferences } from '../services/notifications';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
