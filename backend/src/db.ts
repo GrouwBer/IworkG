@@ -252,6 +252,15 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id TEXT PRIMARY KEY,
+    new_requests INTEGER NOT NULL DEFAULT 1,
+    interests INTEGER NOT NULL DEFAULT 1,
+    reviews INTEGER NOT NULL DEFAULT 1,
+    promotions INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS contact_history (
     id TEXT PRIMARY KEY,
     client_id TEXT NOT NULL,
@@ -877,6 +886,19 @@ export function getPendingReports() {
     WHERE rp.status = 'pending'
     ORDER BY rp.created_at DESC
   `).all();
+}
+
+// ═══════════════════════════════════════════
+// NOTIFICATION PREFERENCES (issue #23) — schema types only
+// Business logic moved to services/notifications.ts
+// ═══════════════════════════════════════════
+
+export interface NotificationPreferences {
+  // 0 = disabled, 1 = enabled (SQLite não tem boolean nativo)
+  new_requests: number;
+  interests: number;
+  reviews: number;
+  promotions: number;
 }
 
 export default db;

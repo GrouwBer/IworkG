@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { notificationService } from '../services/notifications';
 import Toast from '../components/Toast';
 
 export default function DashboardPage() {
@@ -11,6 +12,16 @@ export default function DashboardPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetch = () => notificationService.getNotifications()
+      .then(data => setUnreadCount(data.unreadCount))
+      .catch(() => {});
+    fetch();
+    const interval = setInterval(fetch, 30000); // poll a cada 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -56,6 +67,10 @@ export default function DashboardPage() {
           </button>
           <button onClick={() => navigate('/ajuda')} style={styles.helpBtn} title="Ajuda">
             ?
+          </button>
+          <button onClick={() => navigate('/notificacoes')} style={styles.bellBtn} title="Notificações">
+            🔔
+            {unreadCount > 0 && <span style={styles.bellBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
         </div>
       </header>
@@ -189,6 +204,38 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: 'inherit',
+  },
+  bellBtn: {
+    position: 'relative' as const,
+    width: '32px',
+    height: '32px',
+    fontSize: '14px',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    border: '1px solid rgba(255,255,255,0.3)',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: 'inherit',
+  },
+  bellBadge: {
+    position: 'absolute' as const,
+    top: '-4px',
+    right: '-6px',
+    minWidth: '16px',
+    height: '16px',
+    borderRadius: '8px',
+    backgroundColor: '#dc2626',
+    color: '#fff',
+    fontSize: '10px',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 4px',
+    lineHeight: 1,
   },
   logoutBtn: {
     padding: '6px 16px',

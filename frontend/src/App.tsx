@@ -22,7 +22,9 @@ import PrivacyPage from './pages/PrivacyPage';
 import RequestBoardPage from './pages/RequestBoardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
-// AdminPage imported but route pending
+import AdminPage from './pages/AdminPage';
+import NotificationsPage from './pages/NotificationsPage';
+import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
 
 function App() {
   return (
@@ -48,6 +50,8 @@ function App() {
           <Route path="/prestador/editar" element={<ProtectedRoute><ProviderEditPage /></ProtectedRoute>} />
           <Route path="/prestador/meu-perfil" element={<ProtectedRoute><MyProviderPage /></ProtectedRoute>} />
           <Route path="/mural" element={<ProtectedRoute><RequestBoardPage /></ProtectedRoute>} />
+          <Route path="/notificacoes" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/preferencias" element={<ProtectedRoute><NotificationPreferencesPage /></ProtectedRoute>} />
 
           {/* Admin routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboardPage /></ProtectedRoute>} />

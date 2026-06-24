@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db, { searchOpenRequests } from '../db';
+import { notifyUser } from '../services/notifications';
 import { requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -245,18 +246,14 @@ router.post('/:id/interest', requireAuth, requireRole('provider'), (req: Request
     ? (db.prepare('SELECT name FROM categories WHERE id = ?').get(request.category_id) as any)
     : null;
 
-  // Create notification for the client
-  const notifId = uuidv4();
+  // Notify the client about the new interest
   const catLabel = category ? ` (${category.name})` : '';
-  db.prepare(
-    `INSERT INTO notifications (id, user_id, type, title, body, data)
-     VALUES (?, ?, 'interest_received', ?, ?, ?)`
-  ).run(
-    notifId,
+  notifyUser(
     request.client_id,
+    'interest',
     'Novo interesse no seu pedido!',
     `${provider.name}${catLabel} tem interesse no seu pedido "${request.title}"`,
-    JSON.stringify({ request_id: requestId, provider_id: providerId, interest_id: interestId })
+    { request_id: requestId, provider_id: providerId, interest_id: interestId }
   );
 
   res.status(201).json({
