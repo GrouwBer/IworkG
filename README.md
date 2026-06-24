@@ -249,6 +249,8 @@ cd backend && npm test
 
 ### Requests (`/api/requests`) — requer auth
 
+> ⚠️ Rotas disponíveis a partir do PR #51 (Mural de Pedidos)
+
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/open` | Buscar pedidos abertos (mural) |
@@ -274,6 +276,8 @@ cd backend && npm test
 | GET | `/check/:providerId` | Verificar se favoritado |
 
 ### Notifications (`/api/notifications`) — requer auth
+
+> ⚠️ Rotas de preferências (`/preferences`) disponíveis a partir do PR #55 (Notificações Push)
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
