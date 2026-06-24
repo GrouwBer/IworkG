@@ -6,6 +6,3 @@ dist/
 
 # Runtime data
 backend/data/
-
-# Review artifacts (code review files should not be committed)
-.review-*

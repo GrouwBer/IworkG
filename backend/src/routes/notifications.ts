@@ -77,9 +77,29 @@ router.get('/preferences', requireAuth, (req: Request, res: Response) => {
  * Body: { new_requests?, interests?, reviews?, promotions? }
  */
 router.put('/preferences', requireAuth, (req: Request, res: Response) => {
-  const { new_requests, interests, reviews, promotions } = req.body;
-  updateNotificationPreferences(req.user!.id, { new_requests, interests, reviews, promotions });
-  res.json({ message: 'Preferências atualizadas.' });
+  try {
+    const { new_requests, interests, reviews, promotions } = req.body;
+
+    // Validate body — all values must be numbers (0 or 1) if provided
+    const allowedKeys = ['new_requests', 'interests', 'reviews', 'promotions'];
+    const unknownKeys = Object.keys(req.body).filter(k => !allowedKeys.includes(k));
+    if (unknownKeys.length > 0) {
+      res.status(400).json({ error: `Chaves inválidas: ${unknownKeys.join(', ')}` });
+      return;
+    }
+    for (const k of allowedKeys) {
+      const v = req.body[k];
+      if (v !== undefined && typeof v !== 'number') {
+        res.status(400).json({ error: `${k} deve ser 0 ou 1.` });
+        return;
+      }
+    }
+
+    updateNotificationPreferences(req.user!.id, { new_requests, interests, reviews, promotions });
+    res.json({ message: 'Preferências atualizadas.' });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Erro ao atualizar preferências.' });
+  }
 });
 
 export default router;

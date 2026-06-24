@@ -894,6 +894,7 @@ export function getPendingReports() {
 // ═══════════════════════════════════════════
 
 export interface NotificationPreferences {
+  // 0 = disabled, 1 = enabled (SQLite não tem boolean nativo)
   new_requests: number;
   interests: number;
   reviews: number;

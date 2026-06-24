@@ -25,13 +25,23 @@ export default function NotificationsPage() {
   useEffect(load, []);
 
   const handleMarkRead = async (id: string) => {
-    await notificationService.markAsRead(id);
+    const prev = [...notifications];
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    try {
+      await notificationService.markAsRead(id);
+    } catch {
+      setNotifications(prev); // rollback
+    }
   };
 
   const handleMarkAllRead = async () => {
-    await notificationService.markAllAsRead();
+    const prev = [...notifications];
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try {
+      await notificationService.markAllAsRead();
+    } catch {
+      setNotifications(prev); // rollback
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;

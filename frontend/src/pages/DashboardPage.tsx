@@ -15,9 +15,12 @@ export default function DashboardPage() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    notificationService.getNotifications()
+    const fetch = () => notificationService.getNotifications()
       .then(data => setUnreadCount(data.unreadCount))
       .catch(() => {});
+    fetch();
+    const interval = setInterval(fetch, 30000); // poll a cada 30s
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {

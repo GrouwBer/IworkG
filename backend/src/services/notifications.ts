@@ -32,7 +32,8 @@ export function updateNotificationPreferences(userId: string, prefs: Partial<Not
     const sets: string[] = [];
     const vals: any[] = [];
     for (const [k, v] of Object.entries(prefs)) {
-      if (v !== undefined) { sets.push(`${k} = ?`); vals.push(v ? 1 : 0); }
+      // W3 — Ensure v is a number (0/1) to avoid truthy coercion of strings like "true"
+      if (v !== undefined) { sets.push(`${k} = ?`); vals.push(typeof v === 'number' ? (v ? 1 : 0) : (Number(v) ? 1 : 0)); }
     }
     if (sets.length > 0) {
       vals.push(userId);
@@ -44,8 +45,10 @@ export function updateNotificationPreferences(userId: string, prefs: Partial<Not
   }
 }
 
+type NotificationType = 'new_request' | 'interest' | 'review' | 'promotion';
+
 /** Create a notification only if the user hasn't disabled this type */
-export function notifyUser(userId: string, type: string, title: string, body: string, data?: Record<string, any>) {
+export function notifyUser(userId: string, type: NotificationType, title: string, body: string, data?: Record<string, any>) {
   const prefs = getNotificationPreferences(userId);
   const prefMap: Record<string, keyof NotificationPreferences> = {
     new_request: 'new_requests',
