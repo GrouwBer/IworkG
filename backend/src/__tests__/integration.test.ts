@@ -74,7 +74,7 @@ describe('Fluxo integrado: cliente → busca → contato → avaliação', () =>
 
   it('2. Cliente vê perfil público do prestador', async () => {
     const res = await request(app)
-      .get(`/api/providers/${provider.id}`)
+      .get(`/api/providers/${providerProfileId}`)
       .set(authHeader(client));
 
     expect(res.status).toBe(200);
@@ -83,7 +83,7 @@ describe('Fluxo integrado: cliente → busca → contato → avaliação', () =>
   });
 
   // ⚠️ Steps 3 e 4 dependem de rotas do PR #51 (Mural de Pedidos) ainda não mergeado.
-  // Reativar quando o PR #51 for mergeado em main.
+  // Reativar quando o PR #51 for mergeado em dev.
   it.skip('3. Cliente publica um pedido', async () => {
     const res = await request(app)
       .post('/api/requests')
@@ -122,7 +122,7 @@ describe('Fluxo integrado: cliente → busca → contato → avaliação', () =>
       .send({ provider_id: provider.id, contact_type: 'direct' });
 
     expect(res.status).toBe(201);
-    contactId = res.body.contact?.id || res.body.id;
+    contactId = res.body.contactId;
   });
 
   it('6. Cliente avalia o prestador', async () => {
@@ -166,7 +166,7 @@ describe('Fluxo integrado: prestador → cadastro → status', () => {
 
   it('1. Wizard — consulta estado inicial', async () => {
     const res = await request(app)
-      .get('/api/providers/wizard')
+      .get('/api/provider/wizard')
       .set(authHeader(providerUser));
 
     expect(res.status).toBe(200);
@@ -176,7 +176,7 @@ describe('Fluxo integrado: prestador → cadastro → status', () => {
 
   it('2. Wizard — salva progresso', async () => {
     const res = await request(app)
-      .put('/api/providers/wizard')
+      .put('/api/provider/wizard')
       .set(authHeader(providerUser))
       .send({ step: 2, data: { categories: ['cat-eletricista'] } });
 
@@ -186,7 +186,7 @@ describe('Fluxo integrado: prestador → cadastro → status', () => {
 
   it('3. Wizard — completa cadastro', async () => {
     const res = await request(app)
-      .post('/api/providers/wizard/complete')
+      .post('/api/provider/wizard/complete')
       .set(authHeader(providerUser))
       .send({
         categories: ['cat-eletricista'],
@@ -204,7 +204,7 @@ describe('Fluxo integrado: prestador → cadastro → status', () => {
 
   it('4. Perfil próprio retorna dados corretos', async () => {
     const res = await request(app)
-      .get('/api/providers/me')
+      .get('/api/provider/me')
       .set(authHeader(providerUser));
 
     expect(res.status).toBe(200);
@@ -218,7 +218,7 @@ describe('Fluxo integrado: prestador → cadastro → status', () => {
 // ═══════════════════════════════════════════════
 
 // ⚠️ Fluxo 3 depende de rotas do PR #55 (Notificações Push) ainda não mergeado.
-// Reativar quando o PR #55 for mergeado em main.
+// Reativar quando o PR #55 for mergeado em dev.
 describe.skip('Fluxo integrado: notificações', () => {
   let user: any;
 

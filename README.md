@@ -65,15 +65,8 @@ IworkG/
 │   │   │   ├── otp.ts           # Geração/verificação OTP
 │   │   │   ├── token.ts         # JWT access + refresh tokens
 │   │   │   └── image.ts         # Processamento de imagem (Jimp)
-│   │   └── __tests__/           # Testes unitários/integração
-│   │       ├── auth.test.ts
-│   │       ├── search.test.ts
-│   │       ├── providers.test.ts
-│   │       ├── requests.test.ts
-│   │       ├── contacts.test.ts
-│   │       ├── favorites.test.ts
-│   │       ├── notifications.test.ts
-│   │       └── admin.test.ts
+│   │   └── __tests__/           # Testes de integração
+│   │       └── integration.test.ts
 │   ├── data/                    # Banco SQLite (gitignored)
 │   ├── uploads/                 # Imagens de portfólio (gitignored)
 │   ├── .env.example
@@ -309,7 +302,7 @@ cd backend && npm test
 
 ### Prestador — Cadastro e Serviço
 1. Login → Dashboard
-2. "Tornar-se Prestador" → Wizard 6 etapas
+2. "Tornar-se Prestador" → Wizard 5 etapas
 3. Upload de portfólio "Antes e Depois"
 4. Toggle disponível/ocupado + raio de atuação
 5. Mural de pedidos → demonstrar interesse
