@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { searchService, type Category, type Provider } from '../services/search';
+import Header from '../components/Header';
 
 export default function SearchPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -13,19 +15,21 @@ export default function SearchPage() {
   const [message, setMessage] = useState('');
 
   const selectedCategory = searchParams.get('category_id') || '';
+  const searchQuery = searchParams.get('query') || '';
 
   // Load categories on mount
   useEffect(() => {
     searchService.getCategories().then(setCategories).catch(console.error);
   }, []);
 
-  // Fetch providers when category changes
+  // Fetch providers when filters change
   useEffect(() => {
     setLoading(true);
     setMessage('');
 
     const filters: any = { limit: 50 };
     if (selectedCategory) filters.category_id = selectedCategory;
+    if (searchQuery) filters.query = searchQuery;
 
     // Try to get user's location
     if (navigator.geolocation) {
@@ -35,12 +39,12 @@ export default function SearchPage() {
           filters.lng = pos.coords.longitude;
           doSearch(filters);
         },
-        () => doSearch(filters) // Fallback: search without location
+        () => doSearch(filters)
       );
     } else {
       doSearch(filters);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, searchQuery]);
 
   const doSearch = (filters: any) => {
     searchService.searchProviders(filters)
@@ -71,10 +75,28 @@ export default function SearchPage() {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</span>
-      </header>
+      <Header />
+
+      {/* Search input */}
+      <div style={styles.searchBar}>
+        <input
+          type="text"
+          placeholder="Buscar por nome ou serviço..."
+          value={searchParams.get('query') || ''}
+          onChange={(e) => {
+            const params = new URLSearchParams(searchParams);
+            if (e.target.value) params.set('query', e.target.value);
+            else params.delete('query');
+            setSearchParams(params);
+          }}
+          style={styles.searchInput}
+        />
+        {user?.role === 'client' && (
+          <button onClick={() => navigate('/publicar')} style={styles.newRequestBtn}>
+            + Publicar Pedido
+          </button>
+        )}
+      </div>
 
       {/* Category chips */}
       <div style={styles.chipsWrapper}>
@@ -121,7 +143,11 @@ export default function SearchPage() {
         ) : (
           <div style={styles.grid}>
             {providers.map((p) => (
-              <div key={p.id} style={styles.card}>
+              <div
+                key={p.id}
+                onClick={() => navigate('/prestador/' + p.id)}
+                style={{ ...styles.card, cursor: 'pointer' }}
+              >
                 <div style={styles.cardHeader}>
                   <div style={styles.avatar}>
                     {p.avatarUrl ? (
@@ -171,16 +197,6 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#f5f5f5',
     fontFamily: 'system-ui, sans-serif',
   },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    backgroundColor: '#1a1a2e',
-    color: '#fff',
-  },
-  logo: { fontSize: '20px', fontWeight: 700, margin: 0 },
-  greeting: { fontSize: '14px', opacity: 0.9 },
   chipsWrapper: {
     backgroundColor: '#fff',
     borderBottom: '1px solid #e5e5e5',
@@ -188,6 +204,35 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'sticky',
     top: 0,
     zIndex: 10,
+  },
+  searchBar: {
+    display: 'flex',
+    gap: '12px',
+    padding: '16px 24px',
+    backgroundColor: '#fff',
+    borderBottom: '1px solid #f0f0f0',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '12px 20px',
+    fontSize: '16px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '12px',
+    outline: 'none',
+    fontFamily: 'inherit',
+    transition: 'border-color 0.2s',
+  },
+  newRequestBtn: {
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#16a34a',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap' as const,
   },
   chipsScroll: {
     display: 'flex',

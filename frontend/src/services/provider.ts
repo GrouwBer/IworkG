@@ -8,9 +8,9 @@ export interface PortfolioResponse { providerId: string; photos: PortfolioPhoto[
 
 export const providerService = {
   // Wizard
-  async getWizard(): Promise<WizardState> { const { data } = await api.get('/api/providers/wizard'); return data; },
-  async saveWizard(step: number, data: Record<string, any>) { const { data: res } = await api.put('/api/providers/wizard', { step, data }); return res; },
-  async completeWizard(p: { categories: string[]; description: string; experience_years: number; service_radius_km: number; address: string; city: string; state: string }) { const { data } = await api.post('/api/providers/wizard/complete', p); return data; },
+  async getWizard(): Promise<WizardState> { const { data } = await api.get('/api/provider/wizard'); return data; },
+  async saveWizard(step: number, data: Record<string, any>) { const { data: res } = await api.put('/api/provider/wizard', { step, data }); return res; },
+  async completeWizard(p: { categories: string[]; description: string; experience_years: number; service_radius_km: number; address: string; city: string; state: string }) { const { data } = await api.post('/api/provider/wizard/complete', p); return data; },
   // Profile
   async getMyProfile(): Promise<ProviderProfile> { const { data } = await api.get('/api/providers/me'); return data; },
   // Portfolio

@@ -22,7 +22,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 *
 router.get('/wizard', (req: Request, res: Response) => {
   const userId = req.user!.id;
   const user = db.prepare('SELECT name, phone, email FROM users WHERE id = ?').get(userId) as any;
-  const wizard = getWizardState(userId) ?? createWizardState(userId);
+  let wizard = getWizardState(userId);
+  if (!wizard) {
+    createWizardState(userId);
+    wizard = getWizardState(userId);
+  }
   if (!wizard) { res.status(500).json({ error: 'Erro ao carregar wizard.' }); return; }
   res.json({
     currentStep: wizard.current_step,

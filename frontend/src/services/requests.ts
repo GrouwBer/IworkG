@@ -49,6 +49,7 @@ export interface OpenRequest {
   title: string;
   description: string | null;
   urgency: 'Alta' | 'Media' | 'Baixa';
+  budget: number | null;
   status: string;
   latitude: number | null;
   longitude: number | null;
@@ -90,6 +91,7 @@ export interface CreateRequestData {
   description?: string;
   category_id: string;
   urgency?: string;
+  budget?: number;
   photo_url?: string;
   lat?: number;
   lng?: number;
@@ -152,7 +154,7 @@ export const requestService = {
     };
   },
 
-  async updateRequest(id: string, data: { status: string }): Promise<{ message: string; status: string }> {
+  async updateRequest(id: string, data: { status?: string; title?: string; description?: string; budget?: number | null }): Promise<{ message: string; status?: string }> {
     const { data: response } = await api.patch(`/api/requests/${id}`, data);
     return response;
   },

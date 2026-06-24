@@ -14,7 +14,7 @@ import adminRoutes from './routes/admin';
 const app = express();
 
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: [config.frontendUrl, 'http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
 }));
 app.use(express.json());

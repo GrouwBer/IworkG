@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { notificationService } from '../services/notifications';
 import Toast from '../components/Toast';
+import Header from '../components/Header';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -22,11 +23,6 @@ export default function DashboardPage() {
     const interval = setInterval(fetch, 30000); // poll a cada 30s
     return () => clearInterval(interval);
   }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== 'EXCLUIR') return;
@@ -55,25 +51,25 @@ export default function DashboardPage() {
         onClose={() => setToast(null)}
       />
 
-      <header style={styles.header}>
-        <h1 style={styles.logo}>IworkG</h1>
-        <div style={styles.userInfo}>
-          {user?.avatarUrl && (
-            <img src={user.avatarUrl} alt="" style={styles.avatar} />
-          )}
-          <span style={styles.userName}>{user?.name}</span>
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            Sair
+      <Header />
+
+      <div style={styles.quickActions}>
+        <button onClick={() => navigate('/buscar')} style={styles.quickBtn}>
+          🔍 Buscar Prestadores
+        </button>
+        {user?.role === 'provider' && (
+          <button onClick={() => navigate('/mural')} style={{ ...styles.quickBtn, backgroundColor: '#2563eb' }}>
+            📋 Mural de Pedidos
           </button>
-          <button onClick={() => navigate('/ajuda')} style={styles.helpBtn} title="Ajuda">
-            ?
-          </button>
-          <button onClick={() => navigate('/notificacoes')} style={styles.bellBtn} title="Notificações">
-            🔔
-            {unreadCount > 0 && <span style={styles.bellBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
-          </button>
-        </div>
-      </header>
+        )}
+        <button onClick={() => navigate('/meus-pedidos')} style={styles.quickBtn}>
+          📝 Meus Pedidos
+        </button>
+        <button onClick={() => navigate('/notificacoes')} style={{ ...styles.quickBtn, position: 'relative' as const }}>
+          🔔 Notificações
+          {unreadCount > 0 && <span style={styles.bellBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
+        </button>
+      </div>
 
       <main style={styles.main}>
         <h2>Bem-vindo, {user?.name}!</h2>
@@ -84,6 +80,41 @@ export default function DashboardPage() {
           {user?.email && <>Email: {user.email}<br /></>}
           {user?.phone && <>Telefone: {user.phone}</>}
         </p>
+
+        <div style={styles.navGrid}>
+          <button onClick={() => navigate('/buscar')} style={styles.navCard}>
+            <span style={{ fontSize: 24 }}>🔍</span>
+            <strong>Buscar</strong>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>Encontre prestadores</span>
+          </button>
+          <button onClick={() => navigate('/favoritos')} style={styles.navCard}>
+            <span style={{ fontSize: 24 }}>⭐</span>
+            <strong>Favoritos</strong>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>Seus prestadores salvos</span>
+          </button>
+          <button onClick={() => navigate('/contatos')} style={styles.navCard}>
+            <span style={{ fontSize: 24 }}>💬</span>
+            <strong>Contatos</strong>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>Histórico de conversas</span>
+          </button>
+          <button onClick={() => navigate('/meus-pedidos')} style={styles.navCard}>
+            <span style={{ fontSize: 24 }}>📋</span>
+            <strong>Meus Pedidos</strong>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>Pedidos que você criou</span>
+          </button>
+        </div>
+
+        {user?.role === 'provider' && (
+          <div style={styles.ctaBox}>
+            <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Painel do Prestador</p>
+            <button onClick={() => navigate('/prestador/meu-perfil')} style={{ ...styles.ctaBtn, backgroundColor: '#1a1a2e' }}>
+              👤 Meu Perfil
+            </button>
+            <button onClick={() => navigate('/mural')} style={{ ...styles.ctaBtn, backgroundColor: '#2563eb', marginTop: 8 }}>
+              📋 Mural de Pedidos
+            </button>
+          </div>
+        )}
 
         {user?.role === 'client' && (
           <div style={styles.ctaBox}>
@@ -102,11 +133,6 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
-
-        <div style={styles.placeholder}>
-          <p>🚧 As demais funcionalidades serão implementadas nas próximas issues.</p>
-          <p>Sprint 1 — Fundação: Autenticação (✓) | Filtros (#9) | Busca geográfica</p>
-        </div>
 
         {/* Configurações da Conta */}
         <div style={styles.section}>
@@ -174,52 +200,6 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#f5f5f5',
     fontFamily: 'system-ui, sans-serif',
   },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 32px',
-    backgroundColor: '#1a1a2e',
-    color: '#fff',
-  },
-  logo: { fontSize: '20px', fontWeight: 700, margin: 0 },
-  userInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  avatar: { width: '32px', height: '32px', borderRadius: '50%' },
-  userName: { fontSize: '14px', fontWeight: 500 },
-  helpBtn: {
-    width: '32px',
-    height: '32px',
-    fontSize: '16px',
-    fontWeight: 700,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'inherit',
-  },
-  bellBtn: {
-    position: 'relative' as const,
-    width: '32px',
-    height: '32px',
-    fontSize: '14px',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'inherit',
-  },
   bellBadge: {
     position: 'absolute' as const,
     top: '-4px',
@@ -237,14 +217,25 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '0 4px',
     lineHeight: 1,
   },
-  logoutBtn: {
-    padding: '6px 16px',
-    fontSize: '13px',
-    backgroundColor: 'transparent',
+  quickActions: {
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'center',
+    padding: '16px',
+    maxWidth: '800px',
+    margin: '0 auto',
+    flexWrap: 'wrap' as const,
+  },
+  quickBtn: {
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: 600,
+    backgroundColor: '#1a1a2e',
     color: '#fff',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '6px',
+    border: 'none',
+    borderRadius: '12px',
     cursor: 'pointer',
+    fontFamily: 'inherit',
   },
   main: {
     maxWidth: '800px',
@@ -255,7 +246,28 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
   },
   role: { fontSize: '16px', color: '#555' },
-  info: { fontSize: '14px', color: '#777', marginBottom: '32px' },
+  info: { fontSize: '14px', color: '#777', marginBottom: '24px' },
+  navGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '10px',
+    marginBottom: '24px',
+  },
+  navCard: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '4px',
+    padding: '16px 12px',
+    backgroundColor: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: '13px',
+    textAlign: 'center' as const,
+    transition: 'all 0.15s',
+  },
   ctaBox: {
     padding: '20px',
     backgroundColor: '#eff6ff',

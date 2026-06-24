@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { notificationService, type NotificationItem } from '../services/notifications';
+import Header from '../components/Header';
 
 const TYPE_ICONS: Record<string, string> = {
   new_request: '📋',
@@ -51,18 +52,7 @@ export default function NotificationsPage() {
 
   return (
     <div style={s.container}>
-      <header style={s.header}>
-        <button onClick={() => navigate(-1)} style={s.backBtn}>← Voltar</button>
-        <h1 style={s.logo}>IworkG</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {unreadCount > 0 && (
-            <button onClick={handleMarkAllRead} style={s.markAllBtn}>
-              ✓ Marcar todas lidas
-            </button>
-          )}
-          <button onClick={() => navigate('/preferencias')} style={s.prefsBtn}>⚙️</button>
-        </div>
-      </header>
+      <Header showBack backTo="/dashboard" />
 
       <main style={s.main}>
         <h2 style={s.title}>🔔 Notificações {unreadCount > 0 && <span style={s.badge}>{unreadCount}</span>}</h2>

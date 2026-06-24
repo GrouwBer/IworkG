@@ -126,7 +126,7 @@ router.get('/:id', (req: Request, res: Response) => {
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
     JOIN categories c ON c.id = pp.category_id
-    WHERE pp.id = ? AND pp.active = 1
+    WHERE u.id = ? AND pp.active = 1
   `).get(id) as any;
 
   if (!provider) {
@@ -136,8 +136,8 @@ router.get('/:id', (req: Request, res: Response) => {
 
   // Get portfolio images
   const portfolio = db.prepare(`
-    SELECT id, image_url, caption, sort_order
-    FROM provider_portfolio
+    SELECT id, filename, original_name, mime_type, tag, sort_order, created_at
+    FROM portfolio_photos
     WHERE provider_id = ?
     ORDER BY sort_order ASC, created_at DESC
   `).all(provider.profile_id);
