@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { contactsService, type ContactItem } from '../services/history';
+import Header from '../components/Header';
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -16,11 +17,7 @@ export default function ContactsPage() {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>← Voltar</button>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span />
-      </header>
+      <Header showBack backTo="/dashboard" />
 
       <main style={styles.main}>
         <h2 style={styles.title}>Meus Contatos</h2>

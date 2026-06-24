@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { favoritesService, type FavoriteItem } from '../services/history';
+import Header from '../components/Header';
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
@@ -30,11 +31,7 @@ export default function FavoritesPage() {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>← Voltar</button>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span />
-      </header>
+      <Header showBack backTo="/dashboard" />
 
       <main style={styles.main}>
         <h2 style={styles.title}>Favoritos</h2>

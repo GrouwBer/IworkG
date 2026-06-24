@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { searchService, type Category } from '../services/search';
 import { requestService } from '../services/requests';
 import { getCachedLocation as _getCachedLocation, cacheLocation, lookupCep } from '../services/location';
+import Header from '../components/Header';
 
 export default function NewRequestPage() {
   const { user: _user } = useAuth();
@@ -14,6 +15,7 @@ export default function NewRequestPage() {
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [urgency, setUrgency] = useState('medium');
+  const [budget, setBudget] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
 
   // Location state
@@ -92,6 +94,7 @@ export default function NewRequestPage() {
         description: description.trim() || undefined,
         category_id: categoryId,
         urgency,
+        budget: budget ? Number(budget) : undefined,
         photo_url: photoUrl.trim() || undefined,
         lat: locationLat ?? undefined,
         lng: locationLng ?? undefined,
@@ -115,10 +118,7 @@ export default function NewRequestPage() {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span style={styles.greeting}>Novo Pedido</span>
-      </header>
+      <Header showBack backTo="/dashboard" />
 
       <main style={styles.main}>
         <h2 style={styles.pageTitle}>Publicar Pedido</h2>
@@ -181,6 +181,18 @@ export default function NewRequestPage() {
             </button>
           ))}
         </div>
+
+        {/* Valor máximo */}
+        <label style={styles.label}>Valor máximo (R$) — opcional</label>
+        <input
+          style={styles.input}
+          type="number"
+          placeholder="Ex: 150.00"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+          min={0}
+          step={0.01}
+        />
 
         {/* Foto (URL) */}
         <label style={styles.label}>URL da Foto (opcional)</label>

@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { requestService, type OpenRequest } from '../services/requests';
 import { searchService, type Category } from '../services/search';
 import { providerService } from '../services/providers';
+import Header from '../components/Header';
 
 const URGENCY_COLORS: Record<string, string> = {
   Alta: '#dc2626',
@@ -23,57 +24,51 @@ export default function RequestBoardPage() {
 
   const [selectedCategory, setSelectedCategory] = useState('');
   const [providerLocation, setProviderLocation] = useState<{ lat: number; lng: number; radius: number } | null>(null);
-  const initialized = useRef(false);
+  const [ready, setReady] = useState(false);
 
-  // Load categories + provider profile
+  // Load categories + provider profile (with timeout fallback)
   useEffect(() => {
     searchService.getCategories()
       .then(setCategories)
       .catch(() => {});
 
+    // Fallback: initialize after 5s even if GPS hangs
+    const timeout = setTimeout(() => { setReady(true); }, 5000);
+
     providerService.getOwnProfile()
       .then(profileData => {
+        clearTimeout(timeout);
         const radius = profileData.profile?.serviceRadiusKm || 20;
-        // Try GPS first; fallback to profile coordinates
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             pos => {
-              setProviderLocation({
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                radius,
-              });
-              initialized.current = true;
+              setProviderLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, radius });
+              setReady(true);
             },
             () => {
-              // GPS denied/unavailable — use profile lat/lng if available
               if (profileData.profile?.latitude && profileData.profile?.longitude) {
-                setProviderLocation({
-                  lat: profileData.profile.latitude,
-                  lng: profileData.profile.longitude,
-                  radius,
-                });
+                setProviderLocation({ lat: profileData.profile.latitude, lng: profileData.profile.longitude, radius });
               }
-              initialized.current = true;
-            }
+              setReady(true);
+            },
+            { timeout: 5000 }
           );
         } else if (profileData.profile?.latitude && profileData.profile?.longitude) {
-          setProviderLocation({
-            lat: profileData.profile.latitude,
-            lng: profileData.profile.longitude,
-            radius,
-          });
-          initialized.current = true;
+          setProviderLocation({ lat: profileData.profile.latitude, lng: profileData.profile.longitude, radius });
+          setReady(true);
         } else {
-          initialized.current = true;
+          setReady(true);
         }
       })
-      .catch(() => setError('Perfil de prestador não encontrado. Cadastre-se primeiro.'));
+      .catch(() => {
+        clearTimeout(timeout);
+        setReady(true);
+      });
   }, []);
 
   // Fetch open requests (only after initialization to avoid (0,0) race — W1)
   useEffect(() => {
-    if (!initialized.current) return;
+    if (!ready) return;
 
     setLoading(true);
     setMessage('');
@@ -97,7 +92,7 @@ export default function RequestBoardPage() {
         setError(err.response?.data?.error || 'Erro ao carregar mural.');
       })
       .finally(() => setLoading(false));
-  }, [selectedCategory, providerLocation]);
+  }, [selectedCategory, providerLocation, ready]);
 
   const handleInterest = async (requestId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,19 +126,27 @@ export default function RequestBoardPage() {
   if (error && requests.length === 0) {
     return (
       <div style={styles.center}>
-        <p style={{ color: '#991b1b', textAlign: 'center', maxWidth: '350px' }}>{error}</p>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>Voltar</button>
+        <p style={{ color: '#991b1b', textAlign: 'center', maxWidth: '350px', fontSize: 16 }}>{error}</p>
+        <button onClick={() => navigate('/buscar')} style={{ ...styles.backBtn, marginTop: 16, padding: '12px 32px', fontSize: 16 }}>
+          ← Ir para Busca
+        </button>
+        <button onClick={() => navigate('/dashboard')} style={{ ...styles.backBtn, marginTop: 8, padding: '12px 32px', fontSize: 16, backgroundColor: '#1a1a2e', color: '#fff', border: 'none' }}>
+          🏠 Ir para Dashboard
+        </button>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <button onClick={() => navigate(-1)} style={styles.backBtn}>← Voltar</button>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span style={styles.role}>🔨 Prestador</span>
-      </header>
+      <Header showBack backTo="/dashboard" />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', backgroundColor: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>📋 Mural de Pedidos</h2>
+        <button onClick={() => navigate('/publicar')} style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, backgroundColor: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+          + Novo Pedido
+        </button>
+      </div>
 
       {/* Category filter */}
       <div style={styles.filterBar}>
@@ -193,6 +196,16 @@ export default function RequestBoardPage() {
                 {req.description.length > 120
                   ? req.description.slice(0, 120) + '...'
                   : req.description}
+              </p>
+            )}
+
+            {req.budget != null ? (
+              <p style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, margin: '2px 0 0 0' }}>
+                💰 Até R$ {Number(req.budget).toFixed(2)}
+              </p>
+            ) : (
+              <p style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic', margin: '2px 0 0 0' }}>
+                💰 A combinar
               </p>
             )}
 

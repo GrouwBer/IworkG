@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { providerService, type OwnProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
+import Header from '../components/Header';
 
 export default function ProviderEditPage() {
   const navigate = useNavigate();
@@ -85,17 +86,12 @@ export default function ProviderEditPage() {
         onClose={() => setToast(null)}
       />
 
-      <header style={styles.header}>
-        <h1 style={styles.logo}>IworkG</h1>
-        <div style={styles.headerRight}>
-          <button onClick={() => navigate('/prestador/' + authUser?.id)} style={styles.viewBtn}>
-            👁️ Ver Perfil Público
-          </button>
-          <button onClick={() => navigate('/buscar')} style={styles.backNavBtn}>
-            ← Voltar
-          </button>
-        </div>
-      </header>
+      <Header showBack />
+      <div style={{ padding: '8px 24px', backgroundColor: '#fff', borderBottom: '1px solid #f0f0f0' }}>
+        <button onClick={() => navigate('/prestador/' + authUser?.id)} style={{ padding: '6px 14px', fontSize: 13, background: '#f0f9ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          👁️ Ver Perfil Público
+        </button>
+      </div>
 
       <main style={styles.main}>
         <h2 style={styles.pageTitle}>✏️ Editar Perfil</h2>
