@@ -125,6 +125,7 @@ function toCamelCase(r: any): ServiceRequest {
     address: r.address,
     status: r.status,
     interestCount: r.interestCount ?? r.interest_count ?? 0,
+    budget: r.budget ?? null,
     createdAt: r.createdAt ?? r.created_at,
     client: r.client ? r.client : (r.client_id ? { id: r.client_id, name: r.client_name, avatarUrl: r.client_avatar } : undefined),
   };

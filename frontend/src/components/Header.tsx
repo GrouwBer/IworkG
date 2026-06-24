@@ -7,7 +7,7 @@ interface HeaderProps {
   title?: string;
 }
 
-export default function Header({ showBack, backTo, title }: HeaderProps) {
+export default function Header({ showBack, backTo }: HeaderProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { providerService, type ProviderProfile } from '../services/providers';
 import { useAuth } from '../contexts/AuthContext';
 import ContactModal from '../components/ContactModal';
@@ -14,15 +14,12 @@ const DEFAULT_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
 export default function ProviderProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-
-  const isOwner = user && profile && user.id === profile.id;
 
   useEffect(() => {
     if (!user || !id) return;
@@ -82,7 +79,7 @@ export default function ProviderProfilePage() {
             </span>
             {profile.city && (
               <span style={{ fontSize: 14, color: '#6b7280', marginTop: 8 }}>
-                📍 {profile.city}, {profile.state} {profile.serviceRadiusKm ? `(até ${profile.serviceRadiusKm}km)` : ''}
+                📍 {profile.city}, {profile.state}
               </span>
             )}
           </div>
@@ -114,7 +111,7 @@ export default function ProviderProfilePage() {
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 24 }}>📅</div>
-              <strong style={{ fontSize: 18 }}>{profile.experienceYears || 0} anos</strong>
+              <strong style={{ fontSize: 18 }}>—</strong>
               <div style={{ fontSize: 12, color: '#9ca3af' }}>de experiência</div>
             </div>
           </div>

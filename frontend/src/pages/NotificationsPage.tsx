@@ -35,7 +35,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleMarkAllRead = async () => {
+  const _handleMarkAllRead = async () => {
     const prev = [...notifications];
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     try {
