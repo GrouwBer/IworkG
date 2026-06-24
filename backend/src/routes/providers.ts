@@ -115,7 +115,8 @@ router.get('/profile/mine', requireAuth, (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const provider = db.prepare(`
+  // Try by profile_id first, then user_id (supports both URL patterns)
+  let provider = db.prepare(`
     SELECT
       u.id as user_id, u.name, u.avatar_url, u.phone,
       pp.id as profile_id, pp.description, pp.rating, pp.review_count,
@@ -126,8 +127,24 @@ router.get('/:id', (req: Request, res: Response) => {
     FROM provider_profiles pp
     JOIN users u ON u.id = pp.user_id
     JOIN categories c ON c.id = pp.category_id
-    WHERE u.id = ? AND pp.active = 1
+    WHERE pp.id = ? AND pp.active = 1
   `).get(id) as any;
+
+  if (!provider) {
+    provider = db.prepare(`
+      SELECT
+        u.id as user_id, u.name, u.avatar_url, u.phone,
+        pp.id as profile_id, pp.description, pp.rating, pp.review_count,
+        pp.latitude, pp.longitude, pp.city, pp.state,
+        pp.active,
+        c.id as category_id, c.name as category_name,
+        c.slug as category_slug, c.icon as category_icon
+      FROM provider_profiles pp
+      JOIN users u ON u.id = pp.user_id
+      JOIN categories c ON c.id = pp.category_id
+      WHERE u.id = ? AND pp.active = 1
+    `).get(id) as any;
+  }
 
   if (!provider) {
     res.status(404).json({ error: 'Prestador não encontrado.' });
