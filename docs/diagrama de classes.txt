@@ -4,9 +4,8 @@ skinparam classAttributeIconSize 0
 skinparam monochrome false
 skinparam shadowing true
 skinparam roundcorner 10
-
-skinparam nodesep 60
-skinparam ranksep 80
+skinparam nodesep 40
+skinparam ranksep 60
 skinparam linetype ortho
 
 skinparam class {
@@ -18,14 +17,18 @@ skinparam class {
 skinparam package {
     BackgroundColor #F8F9FA
     BorderColor #A6ACAF
+    FontStyle bold
 }
 
-' ==========================================
-' DOMÍNIO PRINCIPAL
-' ==========================================
-package "Domínio Principal" {
+title Diagrama de Classes — IworkG MVP (Model / DAO / Controller / View)
 
-  class users {
+' ═══════════════════════════════════════════════════════════
+' CAMADA MODEL — Entidades do banco SQLite
+' ═══════════════════════════════════════════════════════════
+
+package "Model (Entidades — SQLite)" as Model #E8F8F5 {
+
+  class users <<entity>> {
     + id: TEXT (PK)
     + name: TEXT
     + email: TEXT (UNIQUE)
@@ -35,14 +38,12 @@ package "Domínio Principal" {
     + role: TEXT (client|provider|admin)
     + banned: INTEGER
     + deleted_at: TEXT
-    + created_at: TEXT
-    + updated_at: TEXT
   }
 
-  class provider_profiles {
+  class provider_profiles <<entity>> {
     + id: TEXT (PK)
-    + user_id: TEXT (FK → users, UNIQUE)
-    + category_id: TEXT (FK → categories)
+    + user_id: TEXT (FK→users, UNIQUE)
+    + category_id: TEXT (FK→categories)
     + description: TEXT
     + rating: REAL
     + review_count: INTEGER
@@ -55,252 +56,448 @@ package "Domínio Principal" {
     + service_radius_km: REAL
     + address: TEXT
     + contact_count: INTEGER
-    + created_at: TEXT
-    + updated_at: TEXT
   }
 
-  class categories {
+  class categories <<entity>> {
     + id: TEXT (PK)
     + name: TEXT
     + slug: TEXT (UNIQUE)
     + icon: TEXT
     + deleted_at: TEXT
-    + created_at: TEXT
   }
 
-  class provider_categories <<many-to-many>> {
-    + provider_id: TEXT (FK → provider_profiles)
-    + category_id: TEXT (FK → categories)
+  class provider_categories <<entity>> {
+    + provider_id: TEXT (PK,FK)
+    + category_id: TEXT (PK,FK)
   }
 
-  class service_requests {
+  class service_requests <<entity>> {
     + id: TEXT (PK)
-    + client_id: TEXT (FK → users)
+    + client_id: TEXT (FK→users)
     + title: TEXT
     + description: TEXT
-    + category_id: TEXT (FK → categories)
+    + category_id: TEXT (FK→categories)
     + city: TEXT
     + state: TEXT
     + latitude: REAL
     + longitude: REAL
-    + status: TEXT (open|in_progress|completed|cancelled)
-    + urgency: TEXT (low|medium|high)
+    + status: TEXT
+    + urgency: TEXT
     + max_value: REAL
     + photo_url: TEXT
     + address: TEXT
-    + created_at: TEXT
-    + updated_at: TEXT
   }
 
-  class interests {
+  class interests <<entity>> {
     + id: TEXT (PK)
-    + request_id: TEXT (FK → service_requests)
-    + provider_id: TEXT (FK → users)
-    + created_at: TEXT
+    + request_id: TEXT (FK→service_requests)
+    + provider_id: TEXT (FK→users)
   }
 
-  class reviews {
+  class reviews <<entity>> {
     + id: TEXT (PK)
-    + client_id: TEXT (FK → users)
-    + provider_id: TEXT (FK → provider_profiles)
-    + contact_id: TEXT (FK → contact_history)
+    + client_id: TEXT (FK→users)
+    + provider_id: TEXT (FK→provider_profiles)
+    + contact_id: TEXT (FK→contact_history)
     + rating: INTEGER (1-5)
     + comment: TEXT
     + response: TEXT
-    + created_at: TEXT
   }
 
-  class contact_history {
+  class portfolio_photos <<entity>> {
     + id: TEXT (PK)
-    + client_id: TEXT (FK → users)
-    + provider_id: TEXT (FK → users)
-    + contact_type: TEXT
-    + created_at: TEXT
-  }
-
-  class favorites {
-    + id: TEXT (PK)
-    + client_id: TEXT (FK → users)
-    + provider_id: TEXT (FK → users)
-    + created_at: TEXT
-  }
-
-  ' Relacionamentos
-  users ||--o| provider_profiles : "tem perfil"
-  users ||--o{ service_requests : "publica"
-  users ||--o{ interests : "demonstra interesse"
-  users ||--o{ reviews : "avalia"
-  users ||--o{ contact_history : "inicia contato (cliente)"
-  users ||--o{ contact_history : "recebe contato (prestador)"
-  users ||--o{ favorites : "favorita"
-
-  provider_profiles ||--o| categories : "categoria principal"
-  provider_profiles ||--o{ provider_categories : "categorias extras"
-  provider_categories }o--|| categories : ""
-  provider_profiles ||--o{ reviews : "recebe avaliações"
-  provider_profiles ||--o{ portfolio_photos : "possui"
-
-  service_requests ||--o| categories : "categoria"
-  service_requests ||--o{ interests : "recebe interesses"
-}
-
-' ==========================================
-' AUTENTICAÇÃO E SEGURANÇA
-' ==========================================
-package "Autenticação e Segurança" {
-
-  class refresh_tokens {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK → users)
-    + token: TEXT (UNIQUE)
-    + expires_at: TEXT
-    + revoked: INTEGER
-    + created_at: TEXT
-  }
-
-  class otp_codes {
-    + id: TEXT (PK)
-    + phone: TEXT
-    + code: TEXT
-    + expires_at: TEXT
-    + used: INTEGER
-    + identifier_type: TEXT
-    + created_at: TEXT
-  }
-
-  class blacklisted_tokens {
-    + id: TEXT (PK)
-    + token_jti: TEXT (UNIQUE)
-    + expires_at: TEXT
-    + created_at: TEXT
-  }
-
-  class recovery_tokens {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK → users)
-    + identifier: TEXT
-    + token: TEXT (UNIQUE)
-    + expires_at: TEXT
-    + used: INTEGER
-    + created_at: TEXT
-  }
-
-  users ||--o{ refresh_tokens : "possui"
-  users ||--o{ recovery_tokens : "solicita"
-}
-
-' ==========================================
-' PRESTADOR — WIZARD E PORTFÓLIO
-' ==========================================
-package "Prestador — Wizard e Portfólio" {
-
-  class provider_wizard_state {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK → users, UNIQUE)
-    + current_step: INTEGER (1-6)
-    + step_data: TEXT (JSON)
-    + created_at: TEXT
-    + updated_at: TEXT
-  }
-
-  class portfolio_photos {
-    + id: TEXT (PK)
-    + provider_id: TEXT (FK → provider_profiles)
+    + provider_id: TEXT (FK→provider_profiles)
     + filename: TEXT
     + original_name: TEXT
     + mime_type: TEXT
     + size_bytes: INTEGER
     + tag: TEXT (Antes|Depois|Geral)
     + sort_order: INTEGER
-    + created_at: TEXT
   }
 
-  users ||--o| provider_wizard_state : "progresso wizard"
-}
-
-' ==========================================
-' NOTIFICAÇÕES
-' ==========================================
-package "Notificações" {
-
-  class notifications {
+  class provider_wizard_state <<entity>> {
     + id: TEXT (PK)
-    + user_id: TEXT (FK → users)
+    + user_id: TEXT (FK→users, UNIQUE)
+    + current_step: INTEGER
+    + step_data: TEXT (JSON)
+  }
+
+  class contact_history <<entity>> {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK→users)
+    + provider_id: TEXT (FK→users)
+    + contact_type: TEXT
+  }
+
+  class favorites <<entity>> {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK→users)
+    + provider_id: TEXT (FK→users)
+  }
+
+  class notifications <<entity>> {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK→users)
     + type: TEXT
     + title: TEXT
     + body: TEXT
     + data: TEXT (JSON)
     + read: INTEGER
-    + created_at: TEXT
   }
 
-  class notification_preferences {
-    + user_id: TEXT (PK, FK → users)
+  class notification_preferences <<entity>> {
+    + user_id: TEXT (PK,FK→users)
     + new_requests: INTEGER
     + interests: INTEGER
     + reviews: INTEGER
     + promotions: INTEGER
   }
 
-  users ||--o{ notifications : "recebe"
-  users ||--|| notification_preferences : "configura"
-}
-
-' ==========================================
-' ADMINISTRAÇÃO
-' ==========================================
-package "Administração" {
-
-  class reports {
+  class reports <<entity>> {
     + id: TEXT (PK)
-    + reporter_id: TEXT (FK → users)
+    + reporter_id: TEXT (FK→users)
     + target_type: TEXT
     + target_id: TEXT
     + reason: TEXT
     + description: TEXT
-    + status: TEXT (pending|resolved|dismissed)
-    + resolved_by: TEXT (FK → users)
+    + status: TEXT
+    + resolved_by: TEXT (FK→users)
     + resolution: TEXT
-    + created_at: TEXT
-    + resolved_at: TEXT
   }
 
-  class bans {
+  class bans <<entity>> {
     + id: TEXT (PK)
-    + user_id: TEXT (FK → users)
-    + admin_id: TEXT (FK → users)
+    + user_id: TEXT (FK→users)
+    + admin_id: TEXT (FK→users)
     + reason: TEXT
     + revoked: INTEGER
-    + created_at: TEXT
-    + revoked_at: TEXT
     + revoked_by: TEXT
   }
 
-  class admin_actions {
+  class admin_actions <<entity>> {
     + id: TEXT (PK)
-    + admin_id: TEXT (FK → users)
+    + admin_id: TEXT (FK→users)
     + action_type: TEXT
     + target_type: TEXT
     + target_id: TEXT
     + justification: TEXT
-    + created_at: TEXT
   }
 
-  users ||--o{ reports : "denuncia"
-  users ||--o{ bans : "é banido"
-  users ||--o{ admin_actions : "executa ação admin"
+  class refresh_tokens <<entity>> {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK→users)
+    + token: TEXT (UNIQUE)
+    + expires_at: TEXT
+    + revoked: INTEGER
+  }
+
+  class otp_codes <<entity>> {
+    + id: TEXT (PK)
+    + phone: TEXT
+    + code: TEXT
+    + expires_at: TEXT
+    + used: INTEGER
+    + identifier_type: TEXT
+  }
+
+  class blacklisted_tokens <<entity>> {
+    + id: TEXT (PK)
+    + token_jti: TEXT (UNIQUE)
+    + expires_at: TEXT
+  }
+
+  class recovery_tokens <<entity>> {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK→users)
+    + identifier: TEXT
+    + token: TEXT (UNIQUE)
+    + expires_at: TEXT
+    + used: INTEGER
+  }
+
+  ' ── Relacionamentos Model ──
+  users ||--o| provider_profiles
+  users ||--o{ service_requests
+  users ||--o{ reviews
+  users ||--o{ interests
+  users ||--o{ contact_history
+  users ||--o{ favorites
+  users ||--o{ notifications
+  users ||--|| notification_preferences
+  users ||--o{ reports
+  users ||--o{ bans
+  users ||--o{ admin_actions
+  users ||--o{ refresh_tokens
+  users ||--o{ recovery_tokens
+  users ||--o| provider_wizard_state
+
+  provider_profiles ||--o| categories
+  provider_profiles ||--o{ provider_categories
+  provider_categories }o--|| categories
+  provider_profiles ||--o{ portfolio_photos
+  provider_profiles ||--o{ reviews
+
+  service_requests ||--o| categories
+  service_requests ||--o{ interests
 }
 
-' ==========================================
-' LEGENDA
-' ==========================================
-legend right
-  |= Tipo |= Descrição |
-  | PK | Chave Primária |
-  | FK | Chave Estrangeira |
-  | UNIQUE | Valor único |
-  | JSON | Campo serializado |
-  | TEXT | String / UUID |
-endlegend
+' ═══════════════════════════════════════════════════════════
+' CAMADA DAO — Funções de acesso a dados (db.ts)
+' ═══════════════════════════════════════════════════════════
+
+package "DAO (Persistência — db.ts)" as DAO #FCF3CF {
+
+  class CategoryDAO {
+    + getAllCategories(): CategoryRow[]
+    + getCategoriesWithProviderCount(): CategoryRow[]
+    + createCategory(name, slug, icon): CategoryRow
+    + updateCategory(id, data): CategoryRow
+    + softDeleteCategory(id): {success, reason?}
+  }
+
+  class ProviderDAO {
+    + searchProviders(filters): any[]
+    + countProviders(filters): number
+    + getProviderProfile(userId): ProviderRow
+    + createProviderProfile(userId, data): string
+    + setProviderCategories(providerId, categoryIds[]): void
+    + getProviderCategories(providerId): any[]
+    + hasClientContactedProvider(clientId, providerUserId): boolean
+  }
+
+  class PortfolioDAO {
+    + addPortfolioPhoto(providerId, data): string
+    + getPortfolioPhotos(providerId): PortfolioPhotoRow[]
+    + getPortfolioPhoto(photoId): PortfolioPhotoRow
+    + deletePortfolioPhoto(photoId): void
+    + countPortfolioPhotos(providerId): number
+  }
+
+  class WizardDAO {
+    + getWizardState(userId): WizardRow
+    + createWizardState(userId): WizardRow
+    + updateWizardState(userId, step, data): WizardRow
+    + deleteWizardState(userId): void
+  }
+
+  class RequestDAO {
+    + searchOpenRequests(filters): any[]
+  }
+
+  class ReviewDAO {
+    + getProviderReviews(providerId): any[]
+    + getClientReviewForContact(clientId, contactId): any
+    + createReview(data): void
+  }
+
+  class ReportDAO {
+    + createReport(data): void
+    + hasRecentReport(reporterId, providerId, hours): boolean
+    + getPendingReports(): any[]
+  }
+
+  class AdminDAO {
+    + getAdminStats(periodDays): AdminStats
+  }
+
+  CategoryDAO ..> categories
+  ProviderDAO ..> provider_profiles
+  ProviderDAO ..> users
+  ProviderDAO ..> provider_categories
+  PortfolioDAO ..> portfolio_photos
+  WizardDAO ..> provider_wizard_state
+  RequestDAO ..> service_requests
+  ReviewDAO ..> reviews
+  ReportDAO ..> reports
+  AdminDAO ..> users
+  AdminDAO ..> service_requests
+  AdminDAO ..> reports
+}
+
+' ═══════════════════════════════════════════════════════════
+' CAMADA CONTROLLER — Rotas Express (backend/src/routes/)
+' ═══════════════════════════════════════════════════════════
+
+package "Controller (Rotas Express)" as Controller #E8EAF6 {
+
+  class AuthController <<auth.ts>> {
+    + POST /google — Login Google OAuth
+    + GET /google/url — URL de autenticação
+    + GET /google/callback — Callback OAuth
+    + POST /otp/send — Enviar código OTP
+    + POST /otp/verify — Verificar OTP
+    + POST /refresh — Renovar JWT
+    + POST /logout — Revogar tokens
+    + GET /me — Dados do usuário logado
+    + POST /recover/send — Recuperação passo 1
+    + POST /recover/verify — Recuperação passo 2
+    + POST /recover/reset — Recuperação passo 3
+    + DELETE /account — Excluir conta
+  }
+
+  class SearchController <<search.ts>> {
+    + GET /categories — Listar categorias
+    + GET /providers/search — Buscar prestadores
+  }
+
+  class RequestsController <<requests.ts>> {
+    + POST / — Criar pedido
+    + GET / — Listar pedidos (admin)
+    + GET /mine — Meus pedidos
+    + PATCH /:id — Editar/cancelar pedido
+    + POST /:id/interest — Demonstrar interesse
+    + GET /:id/interests — Ver interesses
+    + GET /open — Mural de pedidos
+  }
+
+  class ProviderController <<provider.ts>> {
+    + GET /wizard — Estado do wizard
+    + PUT /wizard — Salvar passo do wizard
+    + POST /wizard/complete — Finalizar cadastro
+    + GET /me — Meu perfil prestador
+    + POST /portfolio/upload — Upload foto
+    + GET /:id/portfolio — Portfólio público
+    + DELETE /portfolio/:photoId — Remover foto
+    + GET /me/portfolio — Meu portfólio
+  }
+
+  class ProvidersController <<providers.ts>> {
+    + GET /me — Status do prestador
+    + PATCH /me/status — Alternar disponibilidade
+    + GET /profile/mine — Perfil completo
+    + GET /:id — Perfil público
+    + PUT /profile — Editar perfil
+    + POST /portfolio — Upload portfólio
+    + DELETE /portfolio/:id — Remover foto
+    + POST /:userId/reviews — Avaliar
+    + GET /:userId/reviews — Listar avaliações
+    + POST /:userId/report — Denunciar
+  }
+
+  class NotificationsController <<notifications.ts>> {
+    + GET / — Listar notificações
+    + PATCH /:id/read — Marcar lida
+    + PATCH /read-all — Marcar todas lidas
+    + GET /preferences — Ver preferências
+    + PUT /preferences — Salvar preferências
+  }
+
+  class FavoritesController <<favorites.ts>> {
+    + GET / — Meus favoritos
+    + POST /:providerId — Toggle favorito
+    + GET /check/:providerId — Verificar se é favorito
+  }
+
+  class ContactsController <<contacts.ts>> {
+    + GET / — Histórico de contatos
+    + POST / — Registrar novo contato
+  }
+
+  class AdminController <<admin.ts>> {
+    + GET /categories — Listar categorias
+    + POST /categories — Criar categoria
+    + PUT /categories/:id — Editar categoria
+    + DELETE /categories/:id — Remover categoria
+    + GET /stats — Dashboard métricas
+    + GET /reports — Listar denúncias
+    + GET /reports/:id — Detalhe denúncia
+    + POST /reports/:id/resolve — Resolver denúncia
+    + POST /users/:id/ban — Banir usuário
+    + POST /users/:id/unban — Revogar ban
+    + GET /bans — Listar bans ativos
+  }
+}
+
+' ═══════════════════════════════════════════════════════════
+' CAMADA VIEW — Páginas e Componentes React (frontend/src/)
+' ═══════════════════════════════════════════════════════════
+
+package "View (React — pages/ e components/)" as View #FDEBD0 {
+
+  package "Páginas (pages/)" as Pages {
+    class LoginPage
+    class OTPPage
+    class ForgotAccessPage
+    class AuthCallbackPage
+    class DashboardPage
+    class SearchPage
+    class ProviderProfilePage
+    class ProviderRegisterPage
+    class ProviderEditPage
+    class MyProviderPage
+    class MyRequestsPage
+    class NewRequestPage
+    class RequestDetailPage
+    class RequestBoardPage
+    class FavoritesPage
+    class ContactsPage
+    class NotificationsPage
+    class NotificationPreferencesPage
+    class TermsPage
+    class PrivacyPage
+    class HelpPage
+    class AdminPage
+    class AdminDashboardPage
+    class AdminCategoriesPage
+    class DesignPage
+  }
+
+  package "Componentes (components/)" as Components {
+    class Header
+    class ProtectedRoute
+    class Toast
+    class Modal
+    class Button
+    class Card
+    class Chip
+    class StarRating
+    class InteractiveStars
+    class ReviewSection
+    class ReportModal
+    class PortfolioGallery
+    class ContactModal
+    class ProgressBar
+    class RaioSlider
+  }
+
+  Pages ..> Components : usa
+}
+
+' ═══════════════════════════════════════════════════════════
+' DEPENDÊNCIAS ENTRE CAMADAS
+' ═══════════════════════════════════════════════════════════
+
+View ..> Controller : fetch/axios (HTTP)
+Controller ..> DAO : import e chama funções
+DAO ..> Model : SQL (better-sqlite3)
+
+' ── Específicas por controller ──
+AuthController ..> CategoryDAO : (não usa DAO — queries inline)
+SearchController ..> CategoryDAO
+SearchController ..> ProviderDAO
+RequestsController ..> RequestDAO
+ProviderController ..> WizardDAO
+ProviderController ..> PortfolioDAO
+ProvidersController ..> ProviderDAO
+ProvidersController ..> ReviewDAO
+ProvidersController ..> ReportDAO
+ProvidersController ..> PortfolioDAO
+AdminController ..> AdminDAO
+AdminController ..> CategoryDAO
+AdminController ..> ReportDAO
+NotificationsController ..> CategoryDAO : (não usa DAO — queries inline)
+FavoritesController ..> CategoryDAO : (não usa DAO — queries inline)
+ContactsController ..> CategoryDAO : (não usa DAO — queries inline)
+
+' ── Fluxo principal View→Controller ──
+LoginPage ..> AuthController
+OTPPage ..> AuthController
+ForgotAccessPage ..> AuthController
+DashboardPage ..> SearchController
+SearchPage ..> SearchController
+ProviderProfilePage ..> ProvidersController
+ProviderRegisterPage ..> ProviderController
+RequestBoardPage ..> RequestsController
+AdminPage ..> AdminController
 
 @enduml
