@@ -1,18 +1,10 @@
 @startuml
 !theme plain
 skinparam classAttributeIconSize 0
-skinparam monochrome false
-skinparam shadowing true
-skinparam roundcorner 10
-skinparam nodesep 40
-skinparam ranksep 60
-skinparam linetype ortho
-
-skinparam class {
-    BackgroundColor White
-    ArrowColor #2C3E50
-    BorderColor #2C3E50
-}
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam nodesep 30
+skinparam ranksep 40
 
 skinparam package {
     BackgroundColor #F8F9FA
@@ -20,484 +12,196 @@ skinparam package {
     FontStyle bold
 }
 
-title Diagrama de Classes — IworkG MVP (Model / DAO / Controller / View)
+title Diagrama de Classes — IworkG MVP
 
-' ═══════════════════════════════════════════════════════════
-' CAMADA MODEL — Entidades do banco SQLite
-' ═══════════════════════════════════════════════════════════
+' ═══════════════════════════════════════
+' MODEL — Entidades principais
+' ═══════════════════════════════════════
 
-package "Model (Entidades — SQLite)" as Model #E8F8F5 {
+package "Model (SQLite)" #E8F8F5 {
 
-  class users <<entity>> {
-    + id: TEXT (PK)
-    + name: TEXT
-    + email: TEXT (UNIQUE)
-    + phone: TEXT (UNIQUE)
-    + avatar_url: TEXT
-    + google_id: TEXT (UNIQUE)
-    + role: TEXT (client|provider|admin)
-    + banned: INTEGER
-    + deleted_at: TEXT
+  class users {
+    id, name, email, phone
+    avatar_url, google_id
+    role (client|provider|admin)
+    banned, deleted_at
   }
 
-  class provider_profiles <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users, UNIQUE)
-    + category_id: TEXT (FK→categories)
-    + description: TEXT
-    + rating: REAL
-    + review_count: INTEGER
-    + latitude: REAL
-    + longitude: REAL
-    + city: TEXT
-    + state: TEXT
-    + active: INTEGER
-    + experience_years: INTEGER
-    + service_radius_km: REAL
-    + address: TEXT
-    + contact_count: INTEGER
+  class provider_profiles {
+    id, user_id (FK)
+    category_id (FK)
+    description, rating, review_count
+    city, state, latitude, longitude
+    active, experience_years
+    service_radius_km, address
   }
 
-  class categories <<entity>> {
-    + id: TEXT (PK)
-    + name: TEXT
-    + slug: TEXT (UNIQUE)
-    + icon: TEXT
-    + deleted_at: TEXT
+  class categories {
+    id, name, slug, icon
   }
 
-  class provider_categories <<entity>> {
-    + provider_id: TEXT (PK,FK)
-    + category_id: TEXT (PK,FK)
+  class provider_categories <<M:N>> {
+    provider_id, category_id
   }
 
-  class service_requests <<entity>> {
-    + id: TEXT (PK)
-    + client_id: TEXT (FK→users)
-    + title: TEXT
-    + description: TEXT
-    + category_id: TEXT (FK→categories)
-    + city: TEXT
-    + state: TEXT
-    + latitude: REAL
-    + longitude: REAL
-    + status: TEXT
-    + urgency: TEXT
-    + max_value: REAL
-    + photo_url: TEXT
-    + address: TEXT
+  class service_requests {
+    id, client_id (FK)
+    title, description, category_id
+    city, state, status
+    urgency, max_value, photo_url
   }
 
-  class interests <<entity>> {
-    + id: TEXT (PK)
-    + request_id: TEXT (FK→service_requests)
-    + provider_id: TEXT (FK→users)
+  class interests {
+    id, request_id (FK)
+    provider_id (FK)
   }
 
-  class reviews <<entity>> {
-    + id: TEXT (PK)
-    + client_id: TEXT (FK→users)
-    + provider_id: TEXT (FK→provider_profiles)
-    + contact_id: TEXT (FK→contact_history)
-    + rating: INTEGER (1-5)
-    + comment: TEXT
-    + response: TEXT
+  class reviews {
+    id, client_id, provider_id
+    rating (1-5), comment, response
   }
 
-  class portfolio_photos <<entity>> {
-    + id: TEXT (PK)
-    + provider_id: TEXT (FK→provider_profiles)
-    + filename: TEXT
-    + original_name: TEXT
-    + mime_type: TEXT
-    + size_bytes: INTEGER
-    + tag: TEXT (Antes|Depois|Geral)
-    + sort_order: INTEGER
+  class portfolio_photos {
+    id, provider_id (FK)
+    filename, tag (Antes|Depois|Geral)
   }
 
-  class provider_wizard_state <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users, UNIQUE)
-    + current_step: INTEGER
-    + step_data: TEXT (JSON)
+  class favorites {
+    id, client_id, provider_id
   }
 
-  class contact_history <<entity>> {
-    + id: TEXT (PK)
-    + client_id: TEXT (FK→users)
-    + provider_id: TEXT (FK→users)
-    + contact_type: TEXT
+  class contact_history {
+    id, client_id, provider_id
   }
 
-  class favorites <<entity>> {
-    + id: TEXT (PK)
-    + client_id: TEXT (FK→users)
-    + provider_id: TEXT (FK→users)
+  class notifications {
+    id, user_id, type, title
+    read
   }
 
-  class notifications <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users)
-    + type: TEXT
-    + title: TEXT
-    + body: TEXT
-    + data: TEXT (JSON)
-    + read: INTEGER
+  class notification_preferences {
+    user_id
+    new_requests, interests
+    reviews, promotions
   }
 
-  class notification_preferences <<entity>> {
-    + user_id: TEXT (PK,FK→users)
-    + new_requests: INTEGER
-    + interests: INTEGER
-    + reviews: INTEGER
-    + promotions: INTEGER
+  class reports {
+    id, reporter_id, reason
+    status (pending|resolved)
   }
 
-  class reports <<entity>> {
-    + id: TEXT (PK)
-    + reporter_id: TEXT (FK→users)
-    + target_type: TEXT
-    + target_id: TEXT
-    + reason: TEXT
-    + description: TEXT
-    + status: TEXT
-    + resolved_by: TEXT (FK→users)
-    + resolution: TEXT
+  class bans {
+    id, user_id, admin_id, reason
+    revoked
   }
 
-  class bans <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users)
-    + admin_id: TEXT (FK→users)
-    + reason: TEXT
-    + revoked: INTEGER
-    + revoked_by: TEXT
-  }
+  ' ── Relacionamentos ──
+  users ||--o| provider_profiles : "1"
+  users ||--o{ service_requests : "publica"
+  users ||--o{ reviews : "avalia"
+  users ||--o{ favorites : "favorita"
+  users ||--o{ contact_history : "contata"
+  users ||--o{ notifications : "recebe"
+  users ||--|| notification_preferences : "configura"
+  users ||--o{ reports : "denuncia"
+  users ||--o{ bans : "banido"
 
-  class admin_actions <<entity>> {
-    + id: TEXT (PK)
-    + admin_id: TEXT (FK→users)
-    + action_type: TEXT
-    + target_type: TEXT
-    + target_id: TEXT
-    + justification: TEXT
-  }
+  provider_profiles }o--|| categories : "categoria"
+  provider_profiles ||--o{ provider_categories : ""
+  provider_categories }o--|| categories : ""
+  provider_profiles ||--o{ portfolio_photos : "portfólio"
+  provider_profiles ||--o{ reviews : "recebe"
 
-  class refresh_tokens <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users)
-    + token: TEXT (UNIQUE)
-    + expires_at: TEXT
-    + revoked: INTEGER
-  }
-
-  class otp_codes <<entity>> {
-    + id: TEXT (PK)
-    + phone: TEXT
-    + code: TEXT
-    + expires_at: TEXT
-    + used: INTEGER
-    + identifier_type: TEXT
-  }
-
-  class blacklisted_tokens <<entity>> {
-    + id: TEXT (PK)
-    + token_jti: TEXT (UNIQUE)
-    + expires_at: TEXT
-  }
-
-  class recovery_tokens <<entity>> {
-    + id: TEXT (PK)
-    + user_id: TEXT (FK→users)
-    + identifier: TEXT
-    + token: TEXT (UNIQUE)
-    + expires_at: TEXT
-    + used: INTEGER
-  }
-
-  ' ── Relacionamentos Model ──
-  users ||--o| provider_profiles
-  users ||--o{ service_requests
-  users ||--o{ reviews
-  users ||--o{ interests
-  users ||--o{ contact_history
-  users ||--o{ favorites
-  users ||--o{ notifications
-  users ||--|| notification_preferences
-  users ||--o{ reports
-  users ||--o{ bans
-  users ||--o{ admin_actions
-  users ||--o{ refresh_tokens
-  users ||--o{ recovery_tokens
-  users ||--o| provider_wizard_state
-
-  provider_profiles ||--o| categories
-  provider_profiles ||--o{ provider_categories
-  provider_categories }o--|| categories
-  provider_profiles ||--o{ portfolio_photos
-  provider_profiles ||--o{ reviews
-
-  service_requests ||--o| categories
-  service_requests ||--o{ interests
+  service_requests ||--o{ interests : "interesses"
+  interests }o--|| users : "prestador"
 }
 
-' ═══════════════════════════════════════════════════════════
-' CAMADA DAO — Funções de acesso a dados (db.ts)
-' ═══════════════════════════════════════════════════════════
+' ═══════════════════════════════════════
+' CONTROLLER — Módulos de rota
+' ═══════════════════════════════════════
 
-package "DAO (Persistência — db.ts)" as DAO #FCF3CF {
+package "Controller (Express)" #E8EAF6 {
 
-  class CategoryDAO {
-    + getAllCategories(): CategoryRow[]
-    + getCategoriesWithProviderCount(): CategoryRow[]
-    + createCategory(name, slug, icon): CategoryRow
-    + updateCategory(id, data): CategoryRow
-    + softDeleteCategory(id): {success, reason?}
+  class "AuthController" as AuthCtl {
+    POST /google, /otp/send, /otp/verify
+    POST /refresh, /logout
+    POST /recover/send → verify → reset
+    GET /me, DELETE /account
   }
 
-  class ProviderDAO {
-    + searchProviders(filters): any[]
-    + countProviders(filters): number
-    + getProviderProfile(userId): ProviderRow
-    + createProviderProfile(userId, data): string
-    + setProviderCategories(providerId, categoryIds[]): void
-    + getProviderCategories(providerId): any[]
-    + hasClientContactedProvider(clientId, providerUserId): boolean
+  class "SearchController" as SearchCtl {
+    GET /categories
+    GET /providers/search
   }
 
-  class PortfolioDAO {
-    + addPortfolioPhoto(providerId, data): string
-    + getPortfolioPhotos(providerId): PortfolioPhotoRow[]
-    + getPortfolioPhoto(photoId): PortfolioPhotoRow
-    + deletePortfolioPhoto(photoId): void
-    + countPortfolioPhotos(providerId): number
+  class "RequestsController" as ReqCtl {
+    POST / (criar), GET /mine
+    PATCH /:id (editar/cancelar)
+    GET /open (mural)
+    POST /:id/interest, GET /:id/interests
   }
 
-  class WizardDAO {
-    + getWizardState(userId): WizardRow
-    + createWizardState(userId): WizardRow
-    + updateWizardState(userId, step, data): WizardRow
-    + deleteWizardState(userId): void
+  class "ProviderController" as ProvCtl {
+    GET/PUT /wizard, POST /wizard/complete
+    POST /portfolio/upload, DELETE /portfolio/:id
   }
 
-  class RequestDAO {
-    + searchOpenRequests(filters): any[]
+  class "ProvidersController" as ProvsCtl {
+    GET /:id (perfil público)
+    PUT /profile (editar)
+    POST /:id/reviews, POST /:id/report
   }
 
-  class ReviewDAO {
-    + getProviderReviews(providerId): any[]
-    + getClientReviewForContact(clientId, contactId): any
-    + createReview(data): void
+  class "NotificationsController" as NotifCtl {
+    GET /, PATCH /:id/read, PATCH /read-all
+    GET/PUT /preferences
   }
 
-  class ReportDAO {
-    + createReport(data): void
-    + hasRecentReport(reporterId, providerId, hours): boolean
-    + getPendingReports(): any[]
+  class "Favorites + Contacts" as MiscCtl {
+    Favorites: GET /, POST /:id (toggle)
+    Contacts: GET /, POST /
   }
 
-  class AdminDAO {
-    + getAdminStats(periodDays): AdminStats
-  }
-
-  CategoryDAO ..> categories
-  ProviderDAO ..> provider_profiles
-  ProviderDAO ..> users
-  ProviderDAO ..> provider_categories
-  PortfolioDAO ..> portfolio_photos
-  WizardDAO ..> provider_wizard_state
-  RequestDAO ..> service_requests
-  ReviewDAO ..> reviews
-  ReportDAO ..> reports
-  AdminDAO ..> users
-  AdminDAO ..> service_requests
-  AdminDAO ..> reports
-}
-
-' ═══════════════════════════════════════════════════════════
-' CAMADA CONTROLLER — Rotas Express (backend/src/routes/)
-' ═══════════════════════════════════════════════════════════
-
-package "Controller (Rotas Express)" as Controller #E8EAF6 {
-
-  class AuthController <<auth.ts>> {
-    + POST /google — Login Google OAuth
-    + GET /google/url — URL de autenticação
-    + GET /google/callback — Callback OAuth
-    + POST /otp/send — Enviar código OTP
-    + POST /otp/verify — Verificar OTP
-    + POST /refresh — Renovar JWT
-    + POST /logout — Revogar tokens
-    + GET /me — Dados do usuário logado
-    + POST /recover/send — Recuperação passo 1
-    + POST /recover/verify — Recuperação passo 2
-    + POST /recover/reset — Recuperação passo 3
-    + DELETE /account — Excluir conta
-  }
-
-  class SearchController <<search.ts>> {
-    + GET /categories — Listar categorias
-    + GET /providers/search — Buscar prestadores
-  }
-
-  class RequestsController <<requests.ts>> {
-    + POST / — Criar pedido
-    + GET / — Listar pedidos (admin)
-    + GET /mine — Meus pedidos
-    + PATCH /:id — Editar/cancelar pedido
-    + POST /:id/interest — Demonstrar interesse
-    + GET /:id/interests — Ver interesses
-    + GET /open — Mural de pedidos
-  }
-
-  class ProviderController <<provider.ts>> {
-    + GET /wizard — Estado do wizard
-    + PUT /wizard — Salvar passo do wizard
-    + POST /wizard/complete — Finalizar cadastro
-    + GET /me — Meu perfil prestador
-    + POST /portfolio/upload — Upload foto
-    + GET /:id/portfolio — Portfólio público
-    + DELETE /portfolio/:photoId — Remover foto
-    + GET /me/portfolio — Meu portfólio
-  }
-
-  class ProvidersController <<providers.ts>> {
-    + GET /me — Status do prestador
-    + PATCH /me/status — Alternar disponibilidade
-    + GET /profile/mine — Perfil completo
-    + GET /:id — Perfil público
-    + PUT /profile — Editar perfil
-    + POST /portfolio — Upload portfólio
-    + DELETE /portfolio/:id — Remover foto
-    + POST /:userId/reviews — Avaliar
-    + GET /:userId/reviews — Listar avaliações
-    + POST /:userId/report — Denunciar
-  }
-
-  class NotificationsController <<notifications.ts>> {
-    + GET / — Listar notificações
-    + PATCH /:id/read — Marcar lida
-    + PATCH /read-all — Marcar todas lidas
-    + GET /preferences — Ver preferências
-    + PUT /preferences — Salvar preferências
-  }
-
-  class FavoritesController <<favorites.ts>> {
-    + GET / — Meus favoritos
-    + POST /:providerId — Toggle favorito
-    + GET /check/:providerId — Verificar se é favorito
-  }
-
-  class ContactsController <<contacts.ts>> {
-    + GET / — Histórico de contatos
-    + POST / — Registrar novo contato
-  }
-
-  class AdminController <<admin.ts>> {
-    + GET /categories — Listar categorias
-    + POST /categories — Criar categoria
-    + PUT /categories/:id — Editar categoria
-    + DELETE /categories/:id — Remover categoria
-    + GET /stats — Dashboard métricas
-    + GET /reports — Listar denúncias
-    + GET /reports/:id — Detalhe denúncia
-    + POST /reports/:id/resolve — Resolver denúncia
-    + POST /users/:id/ban — Banir usuário
-    + POST /users/:id/unban — Revogar ban
-    + GET /bans — Listar bans ativos
+  class "AdminController" as AdminCtl {
+    CRUD /categories
+    GET /stats, GET /reports, POST /reports/:id/resolve
+    POST /users/:id/ban, POST /users/:id/unban
   }
 }
 
-' ═══════════════════════════════════════════════════════════
-' CAMADA VIEW — Páginas e Componentes React (frontend/src/)
-' ═══════════════════════════════════════════════════════════
+' ═══════════════════════════════════════
+' VIEW — Páginas React
+' ═══════════════════════════════════════
 
-package "View (React — pages/ e components/)" as View #FDEBD0 {
+package "View (React)" #FDEBD0 {
 
-  package "Páginas (pages/)" as Pages {
-    class LoginPage
-    class OTPPage
-    class ForgotAccessPage
-    class AuthCallbackPage
-    class DashboardPage
-    class SearchPage
-    class ProviderProfilePage
-    class ProviderRegisterPage
-    class ProviderEditPage
-    class MyProviderPage
-    class MyRequestsPage
-    class NewRequestPage
-    class RequestDetailPage
-    class RequestBoardPage
-    class FavoritesPage
-    class ContactsPage
-    class NotificationsPage
-    class NotificationPreferencesPage
-    class TermsPage
-    class PrivacyPage
-    class HelpPage
-    class AdminPage
-    class AdminDashboardPage
-    class AdminCategoriesPage
-    class DesignPage
+  package "Cliente" {
+    class "LoginPage\nOTPPage\nForgotAccessPage" as V_Auth
+    class "DashboardPage\nSearchPage" as V_Dash
+    class "ProviderProfilePage\nFavoritesPage\nContactsPage" as V_Profile
+    class "NewRequestPage\nMyRequestsPage\nRequestDetailPage" as V_Req
   }
 
-  package "Componentes (components/)" as Components {
-    class Header
-    class ProtectedRoute
-    class Toast
-    class Modal
-    class Button
-    class Card
-    class Chip
-    class StarRating
-    class InteractiveStars
-    class ReviewSection
-    class ReportModal
-    class PortfolioGallery
-    class ContactModal
-    class ProgressBar
-    class RaioSlider
+  package "Prestador" {
+    class "ProviderRegisterPage\nProviderEditPage" as V_ProvReg
+    class "RequestBoardPage\nMyProviderPage" as V_ProvDash
   }
 
-  Pages ..> Components : usa
+  package "Geral" {
+    class "NotificationsPage\nNotificationPreferencesPage\nHelpPage\nTermsPage\nPrivacyPage" as V_Geral
+  }
+
+  package "Admin" {
+    class "AdminDashboardPage\nAdminCategoriesPage\nAdminPage" as V_Admin
+  }
+
+  package "Componentes" {
+    class "Header, ProtectedRoute\nStarRating, ReviewSection\nPortfolioGallery, ReportModal\nContactModal, Toast, Modal\nProgressBar, RaioSlider" as V_Comp
+  }
 }
 
-' ═══════════════════════════════════════════════════════════
-' DEPENDÊNCIAS ENTRE CAMADAS
-' ═══════════════════════════════════════════════════════════
-
-View ..> Controller : fetch/axios (HTTP)
-Controller ..> DAO : import e chama funções
-DAO ..> Model : SQL (better-sqlite3)
-
-' ── Específicas por controller ──
-AuthController ..> CategoryDAO : (não usa DAO — queries inline)
-SearchController ..> CategoryDAO
-SearchController ..> ProviderDAO
-RequestsController ..> RequestDAO
-ProviderController ..> WizardDAO
-ProviderController ..> PortfolioDAO
-ProvidersController ..> ProviderDAO
-ProvidersController ..> ReviewDAO
-ProvidersController ..> ReportDAO
-ProvidersController ..> PortfolioDAO
-AdminController ..> AdminDAO
-AdminController ..> CategoryDAO
-AdminController ..> ReportDAO
-NotificationsController ..> CategoryDAO : (não usa DAO — queries inline)
-FavoritesController ..> CategoryDAO : (não usa DAO — queries inline)
-ContactsController ..> CategoryDAO : (não usa DAO — queries inline)
-
-' ── Fluxo principal View→Controller ──
-LoginPage ..> AuthController
-OTPPage ..> AuthController
-ForgotAccessPage ..> AuthController
-DashboardPage ..> SearchController
-SearchPage ..> SearchController
-ProviderProfilePage ..> ProvidersController
-ProviderRegisterPage ..> ProviderController
-RequestBoardPage ..> RequestsController
-AdminPage ..> AdminController
+' ── Dependências entre camadas ──
+View ..> Controller : HTTP (fetch)
+Controller ..> Model : SQL (better-sqlite3)
 
 @enduml
