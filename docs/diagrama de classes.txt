@@ -1,0 +1,255 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam shadowing true
+skinparam roundcorner 10
+
+' Ajuste de layout vertical estável
+skinparam nodesep 50
+skinparam ranksep 70
+skinparam linetype ortho
+skinparam groupInheritance 2
+
+skinparam class {
+    BackgroundColor White
+    ArrowColor #2C3E50
+    BorderColor #2C3E50
+}
+
+skinparam package {
+    BackgroundColor #F8F9FA
+    BorderColor #A6ACAF
+}
+
+' ==========================================
+' CAMADA VIEW
+' ==========================================
+package "View (Camada de Apresentação)" {
+  class TelaLogin {
+    + renderizarFormulario(): void
+    + exibirMensagemErro(msg: String): void
+    + coletarCredenciais(): void
+  }
+  
+  class TelaPrincipalCliente {
+    + renderizarMapaInterativo(): void
+    + exibirResultadosBusca(lista: List): void
+    + exibirFormularioPedido(): void
+    + acionarWhatsApp(telefone: String): void
+  }
+  
+  class TelaPerfilPrestador {
+    + exibirPortfolio(imagens: List): void
+    + renderizarAvaliacoesEDesafios(): void
+    + exibirPedidosProximos(): void
+    + alternarBotaoDisponibilidade(): void
+  }
+
+  class TelaDashboardAdmin {
+    + exibirGraficosMetricas(): void
+    + listarUsuariosDenunciados(): void
+    + renderizarPainelCategorias(): void
+  }
+}
+
+' ==========================================
+' CAMADA CONTROLLER
+' ==========================================
+package "Controller (Camada de Controle)" {
+  class AutenticacaoController {
+    + processarLogin(email: String, senha: String): boolean
+    + solicitarRecuperacaoSenha(email: String): void
+    + encerrarSessaoAtiva(): void
+  }
+  
+  class ClienteController {
+    + processarBusca(categoria: CategoriaServico): List<Prestador>
+    + salvarPedidoServico(descricao: String, foto: String): void
+    + enviarAvaliacao(prestador: Prestador, nota: int, comentario: String): void
+    + processarFavorito(prestador: Prestador): void
+    + registrarNovoContatoPush(prestador: Prestador): void
+  }
+  
+  class PrestadorController {
+    + carregarPedidosAbertos(lat: double, long: double): List<PedidoServico>
+    + registrarInteresseEmPedido(pedido: PedidoServico): void
+    + responderAvaliacaoCliente(avaliacao: Avaliacao, resposta: String): void
+    + atualizarRaioAtuacao(km: float): void
+  }
+
+  class AdminController {
+    + processarBanimento(id_usuario: int): void
+    + atualizarCategoriasGlobais(cat: CategoriaServico): void
+    + moderarConteudoDenunciado(usuario: Usuario): void
+  }
+}
+
+' ==========================================
+' CAMADA MODEL
+' ==========================================
+package "Model (Camada de Negócio)" {
+  abstract class Usuario {
+    - id_usuario: int
+    - telefone: String
+    - email: String
+    - senha: String
+    - foto_perfil: String
+    - status_conta: boolean
+    + realizarLogin(): void
+    + recuperarSenha(): void
+    + editarDadosPessoais(): void
+    + excluirConta(): void
+    + encerrarSessao(): void
+  }
+
+  class Administrador {
+    + moderarUsuariosEFotos(): void
+    + banirUsuarioInfrator(): void
+    + gerenciarCategoriasDeServico(): void
+    + visualizarDashboardDeMetricas(): void
+  }
+
+  class Cliente {
+    - localizacao_atual_lat: double
+    - localizacao_atual_long: double
+    + informarLocalizacao(): void
+    + buscarProfissionais(categoria: CategoriaServico): List<Prestador>
+    + favoritarPrestador(prestador: Prestador): void
+    + denunciarIrregularidade(usuario: Usuario): void
+    + publicarPedido(descricao: String, foto: String): void
+    + avaliarPrestador(prestador: Prestador, nota: int, comentario: String): void
+  }
+
+  class Prestador {
+    - status_disponibilidade: String
+    - raio_atuacao_km: float
+    - portfolio_imagens: List<String>
+    - media_avaliacoes: float
+    + cadastrarPerfil(): void
+    + gerenciarPortfolio(): void
+    + alterarStatus(): void
+    + definirRaioAtuacao(): void
+    + demonstrarInteresse(pedido: PedidoServico): void
+    + buscarPedidosAbertos(localizacao: double[]): List<PedidoServico>
+    + responderAvaliacao(avaliacao: Avaliacao, resposta: String): void
+  }
+
+  class PedidoServico {
+    - id_pedido: int
+    - descricao_problema: String
+    - foto_problema: String
+    - status_pedido: String
+  }
+
+  class Avaliacao {
+    - id_avaliacao: int
+    - nota: int
+    - comentario_cliente: String
+    - resposta_prestador: String
+  }
+
+  class CategoriaServico {
+    - id_categoria: int
+    - nome_categoria: String
+  }
+  
+  class RegistroContato {
+    - id_registro: int
+    - data_hora_clique: Date
+    - origem_clique: String
+    - convertido: boolean
+  }
+  
+  ' Heranças estruturadas de forma limpa (Sem direções ambíguas)
+  Usuario <|-- Administrador
+  Usuario <|-- Cliente
+  Usuario <|-- Prestador
+  
+  ' Relacionamentos da Model
+  Cliente "1" -- "0..*" Avaliacao : faz >
+  Avaliacao "0..*" -- "1" Prestador : recebe <
+  Cliente "0..*" -- "0..*" Prestador : favorita >
+  
+  Cliente "1" -- "0..*" RegistroContato : inicia contato >
+  RegistroContato "0..*" -- "1" Prestador : direcionado a >
+  
+  Cliente "1" -- "0..*" PedidoServico : publica >
+  Prestador "0..*" -- "0..*" PedidoServico : demonstra interesse >
+  
+  Prestador "0..*" -- "1..*" CategoriaServico : atua em >
+  PedidoServico "0..*" -- "1..*" CategoriaServico : possui >
+}
+
+' ==========================================
+' CAMADA DAO
+' ==========================================
+package "DAO (Camada de Persistência)" {
+  interface IGenericDAO<T> <<interface>> {
+    + inserir(obj: T): boolean
+    + atualizar(obj: T): boolean
+    + deletar(id: int): boolean
+    + buscarPorId(id: int): T
+    + listarTodos(): List<T>
+  }
+
+  class UsuarioDAO {
+    + buscarPorEmailESenha(email: String, senha: String): Usuario
+    + inativarConta(id_usuario: int): boolean
+  }
+  
+  class PrestadorDAO {
+    + buscarPorCategoriaERaio(id_cat: int, lat: double, long: double, raio: float): List<Prestador>
+    + adicionarFavorito(id_cliente: int, id_prestador: int): boolean
+  }
+  
+  class RegistroContatoDAO {
+    + salvarMetricaLead(registro: RegistroContato): boolean
+    + contarLeadsPorPrestador(id_prestador: int): int
+  }
+  
+  class PedidoDAO {
+    + salvarNovoPedido(p: PedidoServico): boolean
+    + listarPedidosProximos(lat: double, long: double, raio: float): List<PedidoServico>
+    + registrarInteressePrestador(id_pedido: int, id_prestador: int): boolean
+  }
+
+  class AvaliacaoDAO {
+    + salvarAvaliacaoEResposta(a: Avaliacao): boolean
+    + atualizarMediaPrestador(id_prestador: int): void
+  }
+
+  ' Implementação das Interfaces sem conflito de rota
+  IGenericDAO <|.. UsuarioDAO
+  IGenericDAO <|.. PrestadorDAO
+  IGenericDAO <|.. RegistroContatoDAO
+  IGenericDAO <|.. PedidoDAO
+  IGenericDAO <|.. AvaliacaoDAO
+}
+
+' ==========================================
+' FLUXO E DEPENDÊNCIAS ENTRE CAMADAS (Top-Down)
+' ==========================================
+TelaLogin ..> AutenticacaoController
+TelaPrincipalCliente ..> ClienteController
+TelaPerfilPrestador ..> PrestadorController
+TelaDashboardAdmin ..> AdminController
+
+AutenticacaoController ..> UsuarioDAO
+ClienteController ..> PrestadorDAO
+ClienteController ..> PedidoDAO
+ClienteController ..> AvaliacaoDAO
+ClienteController ..> RegistroContatoDAO
+PrestadorController ..> PedidoDAO
+PrestadorController ..> AvaliacaoDAO
+AdminController ..> UsuarioDAO
+AdminController ..> RegistroContatoDAO
+
+AutenticacaoController ..> Usuario
+ClienteController ..> Cliente
+ClienteController ..> PedidoServico
+ClienteController ..> RegistroContato
+PrestadorController ..> Prestador
+AdminController ..> Administrador
+
+@enduml
