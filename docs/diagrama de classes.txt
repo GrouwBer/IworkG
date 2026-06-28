@@ -3,8 +3,9 @@
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 skinparam roundcorner 8
-skinparam nodesep 30
-skinparam ranksep 40
+skinparam nodesep 20
+skinparam ranksep 30
+skinparam maxMessageSize 120
 
 skinparam package {
     BackgroundColor #F8F9FA
@@ -14,194 +15,233 @@ skinparam package {
 
 title Diagrama de Classes — IworkG MVP
 
-' ═══════════════════════════════════════
-' MODEL — Entidades principais
-' ═══════════════════════════════════════
+' ═══════════════════════ MODEL ═══════════════════════
 
-package "Model (SQLite)" #E8F8F5 {
+package "Model — Entidades SQLite" #E8F8F5 {
 
   class users {
-    id, name, email, phone
-    avatar_url, google_id
-    role (client|provider|admin)
-    banned, deleted_at
+    id | name | email | phone | avatar_url | google_id
+    role: client | provider | admin
+    banned | deleted_at
   }
 
   class provider_profiles {
-    id, user_id (FK)
-    category_id (FK)
-    description, rating, review_count
-    city, state, latitude, longitude
-    active, experience_years
-    service_radius_km, address
+    id | user_id(FK) | category_id(FK)
+    description | rating | review_count
+    city | state | lat | lng
+    active | experience_years | service_radius_km | address
   }
 
   class categories {
-    id, name, slug, icon
+    id | name | slug | icon
   }
 
   class provider_categories <<M:N>> {
-    provider_id, category_id
+    provider_id | category_id
   }
 
   class service_requests {
-    id, client_id (FK)
-    title, description, category_id
-    city, state, status
-    urgency, max_value, photo_url
+    id | client_id(FK) | category_id
+    title | description | status
+    city | state | urgency | max_value
   }
 
   class interests {
-    id, request_id (FK)
-    provider_id (FK)
+    id | request_id(FK) | provider_id(FK)
   }
 
   class reviews {
-    id, client_id, provider_id
-    rating (1-5), comment, response
+    id | client_id | provider_id
+    rating(1-5) | comment | response
   }
 
   class portfolio_photos {
-    id, provider_id (FK)
-    filename, tag (Antes|Depois|Geral)
-  }
-
-  class favorites {
-    id, client_id, provider_id
+    id | provider_id(FK)
+    filename | tag: Antes|Depois|Geral
   }
 
   class contact_history {
-    id, client_id, provider_id
+    id | client_id | provider_id
+  }
+
+  class favorites {
+    id | client_id | provider_id
   }
 
   class notifications {
-    id, user_id, type, title
-    read
+    id | user_id | type | title | read
   }
 
   class notification_preferences {
-    user_id
-    new_requests, interests
-    reviews, promotions
+    user_id | new_requests | interests | reviews | promotions
   }
 
   class reports {
-    id, reporter_id, reason
-    status (pending|resolved)
+    id | reporter_id | reason | status
   }
 
   class bans {
-    id, user_id, admin_id, reason
-    revoked
+    id | user_id | admin_id | reason | revoked
   }
 
-  ' ── Relacionamentos ──
-  users ||--o| provider_profiles : "1"
-  users ||--o{ service_requests : "publica"
-  users ||--o{ reviews : "avalia"
-  users ||--o{ favorites : "favorita"
-  users ||--o{ contact_history : "contata"
-  users ||--o{ notifications : "recebe"
-  users ||--|| notification_preferences : "configura"
-  users ||--o{ reports : "denuncia"
-  users ||--o{ bans : "banido"
+  ' Relacionamentos
+  users ||--o| provider_profiles
+  users ||--o{ service_requests
+  users ||--o{ reviews
+  users ||--o{ favorites
+  users ||--o{ contact_history
+  users ||--o{ notifications
+  users ||--|| notification_preferences
+  users ||--o{ reports
+  users ||--o{ bans
 
-  provider_profiles }o--|| categories : "categoria"
-  provider_profiles ||--o{ provider_categories : ""
-  provider_categories }o--|| categories : ""
-  provider_profiles ||--o{ portfolio_photos : "portfólio"
-  provider_profiles ||--o{ reviews : "recebe"
+  provider_profiles }o--|| categories
+  provider_profiles ||--o{ provider_categories
+  provider_categories }o--|| categories
+  provider_profiles ||--o{ portfolio_photos
+  provider_profiles ||--o{ reviews
 
-  service_requests ||--o{ interests : "interesses"
-  interests }o--|| users : "prestador"
+  service_requests ||--o{ interests
+  interests }o--|| users
 }
 
-' ═══════════════════════════════════════
-' CONTROLLER — Módulos de rota
-' ═══════════════════════════════════════
+' ═══════════════════════ DAO ═══════════════════════
 
-package "Controller (Express)" #E8EAF6 {
+package "DAO — Acesso a Dados (db.ts)" #FCF3CF {
 
-  class "AuthController" as AuthCtl {
-    POST /google, /otp/send, /otp/verify
-    POST /refresh, /logout
-    POST /recover/send → verify → reset
-    GET /me, DELETE /account
+  class CategoryDAO {
+    getAll() | create() | update() | softDelete()
+    getWithProviderCount()
   }
 
-  class "SearchController" as SearchCtl {
+  class ProviderDAO {
+    search(filters) | count(filters)
+    getProfile(userId) | createProfile(userId, data)
+    setCategories() | getCategories()
+  }
+
+  class PortfolioDAO {
+    addPhoto() | getPhotos() | getPhoto()
+    deletePhoto() | countPhotos()
+  }
+
+  class WizardDAO {
+    getState() | createState()
+    updateState() | deleteState()
+  }
+
+  class RequestDAO {
+    searchOpen(filters)
+  }
+
+  class ReviewDAO {
+    getForProvider() | createReview()
+  }
+
+  class ReportDAO {
+    createReport() | hasRecentReport()
+    getPending()
+  }
+
+  class AdminDAO {
+    getStats(periodDays)
+  }
+
+  CategoryDAO ..> categories
+  ProviderDAO ..> provider_profiles
+  PortfolioDAO ..> portfolio_photos
+  WizardDAO ..> provider_profiles
+  RequestDAO ..> service_requests
+  ReviewDAO ..> reviews
+  ReportDAO ..> reports
+  AdminDAO ..> users
+}
+
+' ═══════════════════════ CONTROLLER ═══════════════════════
+
+package "Controller — Rotas Express" #E8EAF6 {
+
+  class "auth.ts" as AuthCtl {
+    POST /google | /otp/send | /otp/verify
+    POST /refresh | /logout | /recover/*
+    GET /me | DELETE /account
+  }
+
+  class "search.ts" as SearchCtl {
     GET /categories
     GET /providers/search
   }
 
-  class "RequestsController" as ReqCtl {
-    POST / (criar), GET /mine
+  class "requests.ts" as ReqCtl {
+    POST / (criar) | GET /mine
     PATCH /:id (editar/cancelar)
     GET /open (mural)
-    POST /:id/interest, GET /:id/interests
+    POST /:id/interest | GET /:id/interests
   }
 
-  class "ProviderController" as ProvCtl {
-    GET/PUT /wizard, POST /wizard/complete
-    POST /portfolio/upload, DELETE /portfolio/:id
+  class "provider.ts" as ProvCtl {
+    GET/PUT /wizard | POST /wizard/complete
+    POST /portfolio/upload | DELETE /portfolio/:id
   }
 
-  class "ProvidersController" as ProvsCtl {
+  class "providers.ts" as ProvsCtl {
     GET /:id (perfil público)
-    PUT /profile (editar)
-    POST /:id/reviews, POST /:id/report
+    PUT /profile | PATCH /me/status
+    POST /:id/reviews | POST /:id/report
   }
 
-  class "NotificationsController" as NotifCtl {
-    GET /, PATCH /:id/read, PATCH /read-all
+  class "notifications.ts" as NotifCtl {
+    GET / | PATCH /:id/read | PATCH /read-all
     GET/PUT /preferences
   }
 
-  class "Favorites + Contacts" as MiscCtl {
-    Favorites: GET /, POST /:id (toggle)
-    Contacts: GET /, POST /
+  class "favorites.ts\ncontacts.ts" as MiscCtl {
+    Favorites: GET / | POST /:id (toggle) | GET /check/:id
+    Contacts: GET / | POST /
   }
 
-  class "AdminController" as AdminCtl {
-    CRUD /categories
-    GET /stats, GET /reports, POST /reports/:id/resolve
-    POST /users/:id/ban, POST /users/:id/unban
+  class "admin.ts" as AdminCtl {
+    CRUD /categories | GET /stats
+    GET/POST /reports | POST /:id/resolve
+    POST /users/:id/ban | /unban
   }
 }
 
-' ═══════════════════════════════════════
-' VIEW — Páginas React
-' ═══════════════════════════════════════
+' ═══════════════════════ VIEW ═══════════════════════
 
-package "View (React)" #FDEBD0 {
+package "View — React (25 páginas + 15 componentes)" #FDEBD0 {
 
-  package "Cliente" {
-    class "LoginPage\nOTPPage\nForgotAccessPage" as V_Auth
-    class "DashboardPage\nSearchPage" as V_Dash
-    class "ProviderProfilePage\nFavoritesPage\nContactsPage" as V_Profile
-    class "NewRequestPage\nMyRequestsPage\nRequestDetailPage" as V_Req
+  class "Cliente" as V_Client {
+    Login · OTP · ForgotAccess · Dashboard · Search
+    ProviderProfile · Favorites · Contacts
+    NewRequest · MyRequests · RequestDetail
   }
 
-  package "Prestador" {
-    class "ProviderRegisterPage\nProviderEditPage" as V_ProvReg
-    class "RequestBoardPage\nMyProviderPage" as V_ProvDash
+  class "Prestador" as V_Provider {
+    ProviderRegister (Wizard 6 passos) · ProviderEdit
+    RequestBoard (Mural) · MyProvider
   }
 
-  package "Geral" {
-    class "NotificationsPage\nNotificationPreferencesPage\nHelpPage\nTermsPage\nPrivacyPage" as V_Geral
+  class "Compartilhado" as V_Shared {
+    Notifications · NotificationPreferences
+    Help · Terms · Privacy
   }
 
-  package "Admin" {
-    class "AdminDashboardPage\nAdminCategoriesPage\nAdminPage" as V_Admin
+  class "Admin" as V_Admin {
+    AdminDashboard · AdminCategories · AdminPage
   }
 
-  package "Componentes" {
-    class "Header, ProtectedRoute\nStarRating, ReviewSection\nPortfolioGallery, ReportModal\nContactModal, Toast, Modal\nProgressBar, RaioSlider" as V_Comp
+  class "Componentes" as V_Comp {
+    Header · ProtectedRoute · Toast · Modal · Button
+    StarRating · InteractiveStars · ReviewSection
+    PortfolioGallery · ReportModal · ContactModal
+    Card · Chip · ProgressBar · RaioSlider
   }
 }
 
 ' ── Dependências entre camadas ──
-View ..> Controller : HTTP (fetch)
-Controller ..> Model : SQL (better-sqlite3)
+Controller ..> DAO : import
+DAO ..> Model : SQL
+View ..> Controller : HTTP REST
 
 @enduml
