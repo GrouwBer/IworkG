@@ -1,90 +1,80 @@
 @startuml
 !theme plain
+left to right direction
 skinparam classAttributeIconSize 0
 skinparam shadowing false
-skinparam roundcorner 8
-skinparam nodesep 20
-skinparam ranksep 30
-skinparam maxMessageSize 120
-
-skinparam package {
-    BackgroundColor #F8F9FA
-    BorderColor #A6ACAF
-    FontStyle bold
-}
+skinparam roundcorner 6
+skinparam nodesep 10
+skinparam ranksep 10
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
 
 title Diagrama de Classes — IworkG MVP
 
-' ═══════════════════════ MODEL ═══════════════════════
+' ═══════════════════════════════════════════════════════
+' CAMADA 1 — MODEL
+' ═══════════════════════════════════════════════════════
 
-package "Model — Entidades SQLite" #E8F8F5 {
+package "Model — SQLite" #E8F8F5 {
 
-  class users {
-    id | name | email | phone | avatar_url | google_id
-    role: client | provider | admin
-    banned | deleted_at
+  together {
+    class users {
+      id | name | email | phone
+      role | banned | deleted_at
+    }
+    class provider_profiles {
+      id | user_id | category_id
+      description | rating
+      city | state | active
+    }
+    class categories {
+      id | name | slug | icon
+    }
+    class reviews {
+      id | client_id | provider_id
+      rating | comment | response
+    }
+    class portfolio_photos {
+      id | provider_id | filename
+      tag
+    }
   }
 
-  class provider_profiles {
-    id | user_id(FK) | category_id(FK)
-    description | rating | review_count
-    city | state | lat | lng
-    active | experience_years | service_radius_km | address
+  together {
+    class service_requests {
+      id | client_id | title
+      category_id | status | urgency
+    }
+    class interests {
+      id | request_id | provider_id
+    }
+    class contact_history {
+      id | client_id | provider_id
+    }
+    class favorites {
+      id | client_id | provider_id
+    }
+    class notifications {
+      id | user_id | type | title
+    }
+    class notification_preferences {
+      user_id | new_requests
+      interests | reviews
+    }
   }
 
-  class categories {
-    id | name | slug | icon
+  together {
+    class reports {
+      id | reporter_id | reason
+    }
+    class bans {
+      id | user_id | admin_id
+    }
+    class provider_categories <<M:N>> {
+      provider_id | category_id
+    }
   }
 
-  class provider_categories <<M:N>> {
-    provider_id | category_id
-  }
-
-  class service_requests {
-    id | client_id(FK) | category_id
-    title | description | status
-    city | state | urgency | max_value
-  }
-
-  class interests {
-    id | request_id(FK) | provider_id(FK)
-  }
-
-  class reviews {
-    id | client_id | provider_id
-    rating(1-5) | comment | response
-  }
-
-  class portfolio_photos {
-    id | provider_id(FK)
-    filename | tag: Antes|Depois|Geral
-  }
-
-  class contact_history {
-    id | client_id | provider_id
-  }
-
-  class favorites {
-    id | client_id | provider_id
-  }
-
-  class notifications {
-    id | user_id | type | title | read
-  }
-
-  class notification_preferences {
-    user_id | new_requests | interests | reviews | promotions
-  }
-
-  class reports {
-    id | reporter_id | reason | status
-  }
-
-  class bans {
-    id | user_id | admin_id | reason | revoked
-  }
-
-  ' Relacionamentos
   users ||--o| provider_profiles
   users ||--o{ service_requests
   users ||--o{ reviews
@@ -105,143 +95,158 @@ package "Model — Entidades SQLite" #E8F8F5 {
   interests }o--|| users
 }
 
-' ═══════════════════════ DAO ═══════════════════════
+' ═══════════════════════════════════════════════════════
+' CAMADA 2 — DAO
+' ═══════════════════════════════════════════════════════
 
-package "DAO — Acesso a Dados (db.ts)" #FCF3CF {
+package "DAO — db.ts" #FCF3CF {
 
   class CategoryDAO {
-    getAll() | create() | update() | softDelete()
-    getWithProviderCount()
+    getAll()
+    create()
+    update()
+    softDelete()
   }
-
   class ProviderDAO {
-    search(filters) | count(filters)
-    getProfile(userId) | createProfile(userId, data)
-    setCategories() | getCategories()
+    search()
+    getProfile()
+    createProfile()
+    setCategories()
   }
-
   class PortfolioDAO {
-    addPhoto() | getPhotos() | getPhoto()
-    deletePhoto() | countPhotos()
+    addPhoto()
+    getPhotos()
+    deletePhoto()
   }
-
   class WizardDAO {
-    getState() | createState()
-    updateState() | deleteState()
+    getState()
+    updateState()
+    deleteState()
   }
-
   class RequestDAO {
-    searchOpen(filters)
+    searchOpen()
   }
-
   class ReviewDAO {
-    getForProvider() | createReview()
+    getForProvider()
+    createReview()
   }
-
   class ReportDAO {
-    createReport() | hasRecentReport()
+    createReport()
     getPending()
   }
-
   class AdminDAO {
-    getStats(periodDays)
+    getStats()
   }
-
-  CategoryDAO ..> categories
-  ProviderDAO ..> provider_profiles
-  PortfolioDAO ..> portfolio_photos
-  WizardDAO ..> provider_profiles
-  RequestDAO ..> service_requests
-  ReviewDAO ..> reviews
-  ReportDAO ..> reports
-  AdminDAO ..> users
 }
 
-' ═══════════════════════ CONTROLLER ═══════════════════════
+' ═══════════════════════════════════════════════════════
+' CAMADA 3 — CONTROLLER
+' ═══════════════════════════════════════════════════════
 
-package "Controller — Rotas Express" #E8EAF6 {
+package "Controller — Express" #E8EAF6 {
 
-  class "auth.ts" as AuthCtl {
-    POST /google | /otp/send | /otp/verify
-    POST /refresh | /logout | /recover/*
-    GET /me | DELETE /account
+  class "auth.ts" as A {
+    POST /google
+    POST /otp/* | /refresh
+    POST /recover/send
+    POST /recover/verify
+    POST /recover/reset
+    POST /logout
+    GET /me
+    DELETE /account
   }
 
-  class "search.ts" as SearchCtl {
+  class "search.ts" as B {
     GET /categories
     GET /providers/search
   }
 
-  class "requests.ts" as ReqCtl {
-    POST / (criar) | GET /mine
-    PATCH /:id (editar/cancelar)
-    GET /open (mural)
-    POST /:id/interest | GET /:id/interests
+  class "requests.ts" as C {
+    POST / (criar)
+    GET /mine | GET /open
+    PATCH /:id
+    POST /:id/interest
   }
 
-  class "provider.ts" as ProvCtl {
-    GET/PUT /wizard | POST /wizard/complete
-    POST /portfolio/upload | DELETE /portfolio/:id
+  class "provider.ts" as D {
+    GET/PUT /wizard
+    POST /wizard/complete
+    POST /portfolio/upload
   }
 
-  class "providers.ts" as ProvsCtl {
-    GET /:id (perfil público)
-    PUT /profile | PATCH /me/status
-    POST /:id/reviews | POST /:id/report
+  class "providers.ts" as E {
+    GET /:id
+    PUT /profile
+    POST /:id/reviews
+    POST /:id/report
   }
 
-  class "notifications.ts" as NotifCtl {
-    GET / | PATCH /:id/read | PATCH /read-all
+  class "notifications.ts" as F {
+    GET / | PATCH /read-all
     GET/PUT /preferences
   }
 
-  class "favorites.ts\ncontacts.ts" as MiscCtl {
-    Favorites: GET / | POST /:id (toggle) | GET /check/:id
-    Contacts: GET / | POST /
+  class "favorites.ts" as G {
+    GET / | POST /:id
+  }
+  class "contacts.ts" as G2 {
+    GET / | POST /
   }
 
-  class "admin.ts" as AdminCtl {
-    CRUD /categories | GET /stats
-    GET/POST /reports | POST /:id/resolve
-    POST /users/:id/ban | /unban
-  }
-}
-
-' ═══════════════════════ VIEW ═══════════════════════
-
-package "View — React (25 páginas + 15 componentes)" #FDEBD0 {
-
-  class "Cliente" as V_Client {
-    Login · OTP · ForgotAccess · Dashboard · Search
-    ProviderProfile · Favorites · Contacts
-    NewRequest · MyRequests · RequestDetail
-  }
-
-  class "Prestador" as V_Provider {
-    ProviderRegister (Wizard 6 passos) · ProviderEdit
-    RequestBoard (Mural) · MyProvider
-  }
-
-  class "Compartilhado" as V_Shared {
-    Notifications · NotificationPreferences
-    Help · Terms · Privacy
-  }
-
-  class "Admin" as V_Admin {
-    AdminDashboard · AdminCategories · AdminPage
-  }
-
-  class "Componentes" as V_Comp {
-    Header · ProtectedRoute · Toast · Modal · Button
-    StarRating · InteractiveStars · ReviewSection
-    PortfolioGallery · ReportModal · ContactModal
-    Card · Chip · ProgressBar · RaioSlider
+  class "admin.ts" as H {
+    CRUD /categories
+    GET /stats | GET /reports
+    POST /users/:id/ban
   }
 }
 
-' ── Dependências entre camadas ──
-Controller ..> DAO : import
-DAO ..> Model : SQL
-View ..> Controller : HTTP REST
+' ═══════════════════════════════════════════════════════
+' CAMADA 4 — VIEW
+' ═══════════════════════════════════════════════════════
+
+package "View — React" #FDEBD0 {
+
+  class "Cliente" as VC {
+    LoginPage | OTPPage
+    DashboardPage
+    SearchPage
+    ProviderProfilePage
+    NewRequestPage
+    MyRequestsPage
+    FavoritesPage
+    ContactsPage
+  }
+
+  class "Prestador" as VP {
+    ProviderRegisterPage
+    ProviderEditPage
+    RequestBoardPage
+    MyProviderPage
+  }
+
+  class "Geral" as VG {
+    NotificationsPage
+    NotificationPreferencesPage
+    HelpPage
+    TermsPage
+    PrivacyPage
+  }
+
+  class "Admin" as VA {
+    AdminDashboardPage
+    AdminCategoriesPage
+    AdminPage
+  }
+
+  class "Componentes" as VX {
+    Header | ProtectedRoute
+    StarRating | ReviewSection
+    PortfolioGallery
+    ReportModal | ContactModal
+    Toast | Modal | ProgressBar
+  }
+}
+
+note bottom : View —▸ Controller (HTTP REST)\nController —▸ DAO (import)\nDAO —▸ Model (SQL / better-sqlite3)
 
 @enduml
