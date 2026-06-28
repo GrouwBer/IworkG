@@ -7,9 +7,11 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      # Persiste o banco SQLite fora do container
-      - backend-data:/app/data
+      # Persiste o banco SQLite fora do container (usa o banco local)
+      - ./backend/data:/app/data
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       - NODE_ENV=production
     healthcheck:
@@ -30,6 +32,3 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  backend-data:
