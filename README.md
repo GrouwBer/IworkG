@@ -60,11 +60,11 @@ VITE_GOOGLE_CLIENT_ID=mesmo-client-id-acima
 # Terminal 1 — Backend (porta 3001)
 cd backend && npm run dev
 
-# Terminal 2 — Frontend (porta 5173)
+# Terminal 2 — Frontend (porta 5173, ou 5174 se 5173 já estiver em uso)
 cd frontend && npm run dev
 ```
 
-Acesse **http://localhost:5173**
+Acesse **http://localhost:5173** (ou a porta exibida no terminal do Vite)
 
 ### Opção Docker
 
@@ -137,6 +137,12 @@ IworkG/
 │   │   ├── pages/               # 20+ páginas (Login, Busca, Perfil, etc.)
 │   │   └── services/            # API client + serviços
 │   └── nginx.conf               # Config nginx para Docker
+├── docs/                       # Documentação do projeto
+│   ├── o que é o projeto.md.txt
+│   ├── Documento de Requisitos do Sistema.md
+│   ├── diagrama de casos de uso.png
+│   ├── diagrma de casos de uso.md.txt
+│   └── diagrama de classes.txt
 ├── docker-compose.yml
 ├── .github/workflows/test.yml   # CI pipeline
 └── README.md
@@ -164,6 +170,20 @@ IworkG/
 | POST | `/api/requests/:id/interest` | Demonstrar interesse |
 | POST | `/api/favorites/:userId` | Toggle favorito |
 | GET | `/api/notifications` | Listar notificações |
+
+---
+
+## Documentação do Projeto
+
+A pasta [`docs/`](docs/) contém os artefatos de análise e design:
+
+| Documento | Descrição |
+|---|---|
+| `o que é o projeto.md.txt` | Visão geral: cliente fictício, empresa, problemas e escopo |
+| `Documento de Requisitos do Sistema.md` | 30 requisitos funcionais + 5 não-funcionais |
+| `diagrama de casos de uso.png` | Diagrama UML de casos de uso |
+| `diagrma de casos de uso.md.txt` | Fonte PlantUML do diagrama de casos de uso |
+| `diagrama de classes.txt` | Fonte PlantUML do diagrama de classes (arquitetura MVC) |
 
 ---
 
