@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { providerService, type ProviderProfile, type PortfolioPhoto } from '../services/provider';
 import PortfolioGallery from '../components/PortfolioGallery';
+import Header from '../components/Header';
 
 export default function MyProviderPage() {
   const { user, isAuthenticated, loading: al } = useAuth();
@@ -26,7 +27,8 @@ export default function MyProviderPage() {
   if (!profile) return null;
 
   return <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'system-ui, sans-serif' }}>
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', background: '#1a1a2e', color: '#fff' }}><h1 style={{ fontSize: 20, fontWeight: 700, margin: 0, cursor: 'pointer' }} onClick={() => nav('/dashboard')}>IworkG</h1><button onClick={() => nav('/dashboard')} style={s.back}>← Dashboard</button></header>
+    <Header showBack />
+
     <main style={{ maxWidth: 800, margin: '24px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 28, boxShadow: '0 2px 12px rgba(0,0,0,.06)' }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>

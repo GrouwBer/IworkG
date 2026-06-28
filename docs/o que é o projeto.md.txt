@@ -1,0 +1,50 @@
+Projeto -  Cliente Fictício e Casos de uso
+
+Parte 1: Cliente Fictício
+
+Nomes: Carlos Felipe Barbosa, Eduardo Tenório Nunes, Gustavo Rodrigues de Souza, João Guilherme Garcia Mangueira, João Victor Borges Carvalho, Kauan Felipe Simão
+
+1. Papel do Cliente na Empresa
+Diretor Executivo (CEO). Combina a visão estratégica do negócio com a atuação direta na linha de frente da operação, liderando a rede de prestadores de serviço e garantindo pessoalmente o mais alto padrão de qualidade na entrega e no atendimento final ao consumidor.
+
+2. Nome da Empresa
+IWork Soluções em Manutenção Ltda.
+
+3. Ramo de Atuação
+Intermediação de serviços técnicos de construção civil, reparos domésticos e manutenção predial em áreas urbanas.
+
+4. Funcionamento Atual (Infraestrutura e Equipe)
+Atualmente, a IWork opera de forma estritamente analógica e manual. Contamos com uma equipe de 5 funcionários alocados em um escritório físico:
+
+Equipe: 3 atendentes comerciais, 1 administrativo e 1 gestor.
+
+Operação: O processo depende 100% de ligações telefônicas e trocas de mensagens manuais. Quando um cliente precisa de um serviço, ele liga para o escritório; um atendente busca em uma planilha compartilhada (Excel) qual profissional cadastrado mora mais perto e está disponível.
+
+Infraestrutura: Telefonia VoIP, computadores básicos e uma base de dados manual que frequentemente fica desatualizada.
+
+5. Problemas da Empresa
+Falta de Escalabilidade: Para dobrar o número de atendimentos, seria necessário dobrar o número de funcionários no telefone, o que torna o custo operacional proibitivo.
+
+Crise de Confiança: Clientes hesitam em contratar profissionais informais por medo de golpes ou má execução. Hoje, não há como provar a qualidade de um pedreiro para o cliente antes da visita.
+
+Ineficiência Geográfica: A seleção manual de profissionais por proximidade é lenta e sujeita a erros, resultando em prestadores que demoram a chegar ou que não aceitam o serviço por ser longe demais.
+
+Baixa Fidelização e Passividade: O trabalhador se sente "vigiado" pelo modelo manual e atua de forma puramente passiva (esperando o telefone tocar). Muitos tentam fechar serviços por fora para não dar satisfação à empresa.
+
+
+6. Processos a Informatizar
+Catálogo e Portfólio Digital: Substituir a planilha por um sistema de perfis com fotos reais de serviços anteriores ("Antes e Depois").
+
+Matchmaking Geolocalizado: Automatizar a exibição de profissionais com base no GPS do usuário, eliminando a busca manual da equipe interna.
+
+Mural de Pedidos (Matchmaking Bidirecional): Criar um espaço onde os clientes possam publicar suas necessidades e os prestadores disponíveis possam visualizar e se voluntariar para o serviço, gerando uma dinâmica ativa de contratação.
+
+Sistema de Reputação: Digitalizar a avaliação dos clientes para que a "prova social" valide os melhores profissionais automaticamente.
+
+7. Sistema a ser Desenvolvido
+O sistema será o IWork MVP (o "Tinder da Construção e Manutenção").
+
+Trata-se de um marketplace de serviços locais focado em alta confiança e baixa fricção. O software funcionará como um ecossistema bidirecional: por um lado, atua como uma vitrine inteligente onde o cliente encontra o profissional por proximidade, visualiza seu histórico de avaliações e portfólio, e inicia o contato direto. Por outro, permite que clientes publiquem demandas para que os prestadores se candidatem ativamente.
+
+O foco da plataforma não é gerenciar o pagamento, mas sim resolver o problema estrutural do encontro (matchmaking) entre a demanda qualificada e a mão de obra verificada, reduzindo drasticamente a carga cognitiva e o tempo de espera de ambos os usuários.
+

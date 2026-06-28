@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { requestService, type ServiceRequest } from '../services/requests';
+import Header from '../components/Header';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   open: { label: 'Aberto', color: '#16a34a' },
@@ -44,6 +45,26 @@ export default function MyRequestsPage() {
     }
   };
 
+  const handleEdit = async (req: ServiceRequest) => {
+    const newTitle = prompt('Título:', req.title);
+    if (newTitle === null) return;
+    const newDesc = prompt('Descrição:', req.description || '');
+    if (newDesc === null) return;
+    const newBudget = prompt('Valor máximo (R$):', req.budget != null ? String(req.budget) : '');
+    if (newBudget === null) return;
+
+    try {
+      await requestService.updateRequest(req.id, {
+        title: newTitle,
+        description: newDesc,
+        budget: newBudget ? Number(newBudget) : null,
+      });
+      loadRequests();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Erro ao editar pedido.');
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -51,10 +72,7 @@ export default function MyRequestsPage() {
 
   return (
     <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.logo}>IworkG</h1>
-        <span style={styles.greeting}>Meus Pedidos</span>
-      </header>
+      <Header showBack backTo="/dashboard" />
 
       <main style={styles.main}>
         <div style={styles.topBar}>
@@ -122,16 +140,37 @@ export default function MyRequestsPage() {
                     <p style={styles.cardDesc}>{req.description}</p>
                   )}
 
+                  {req.budget != null ? (
+                    <p style={{ fontSize: 14, color: '#16a34a', fontWeight: 600, margin: '4px 0' }}>
+                      💰 Até R$ {Number(req.budget).toFixed(2)}
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: 14, color: '#6b7280', fontStyle: 'italic', margin: '4px 0' }}>
+                      💰 A combinar
+                    </p>
+                  )}
+
                   {req.status === 'open' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCancel(req.id);
-                      }}
-                      style={styles.cancelBtn}
-                    >
-                      Cancelar Pedido
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(req);
+                        }}
+                        style={{ ...styles.cancelBtn, backgroundColor: '#f0f9ff', color: '#2563eb', border: '1px solid #bfdbfe' }}
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancel(req.id);
+                        }}
+                        style={styles.cancelBtn}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   )}
                 </div>
               );

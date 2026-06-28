@@ -14,7 +14,7 @@ const router = Router();
  * POST /api/requests — Create a new service request (client only)
  */
 router.post('/', requireAuth, (req: Request, res: Response) => {
-  const { title, description, category_id, urgency, photo_url, lat, lng, city, state, address } = req.body;
+  const { title, description, category_id, urgency, photo_url, lat, lng, city, state, address, budget } = req.body;
 
   if (!title || !category_id) {
     res.status(400).json({ error: 'Título e categoria são obrigatórios.' });
@@ -33,12 +33,13 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
   const clientId = req.user!.id;
 
   db.prepare(`
-    INSERT INTO service_requests (id, client_id, title, description, category_id, urgency, photo_url, latitude, longitude, city, state, address)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO service_requests (id, client_id, title, description, category_id, urgency, photo_url, latitude, longitude, city, state, address, budget)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, clientId, title, description || null, category_id,
     urgency || 'medium', photo_url || null,
-    lat || null, lng || null, city || null, state || null, address || null
+    lat || null, lng || null, city || null, state || null, address || null,
+    budget ? Number(budget) : null
   );
 
   res.status(201).json({ id, message: 'Pedido publicado com sucesso!' });
@@ -54,7 +55,7 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
 
   let sql = `
     SELECT sr.id, sr.title, sr.description, sr.category_id, sr.urgency, sr.photo_url,
-           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status,
+           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status, sr.budget,
            sr.created_at,
            u.id as client_id, u.name as client_name, u.avatar_url as client_avatar,
            c.name as category_name, c.icon as category_icon,
@@ -91,7 +92,6 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
 
   const rows = db.prepare(sql).all(...params) as any[];
 
-  // Count total (without LIMIT/OFFSET)
   const countSql = sql.replace(/SELECT .*? FROM/, 'SELECT COUNT(*) as total FROM')
     .replace(/ LIMIT \? OFFSET \?$/, '');
   const countParams = params.slice(0, params.length - 2);
@@ -111,6 +111,7 @@ router.get('/', requireAuth, (req: Request, res: Response) => {
       city: r.city,
       state: r.state,
       address: r.address,
+      budget: r.budget,
       status: r.status,
       interestCount: r.interest_count,
       createdAt: r.created_at,
@@ -133,7 +134,7 @@ router.get('/mine', requireAuth, (req: Request, res: Response) => {
 
   const rows = db.prepare(`
     SELECT sr.id, sr.title, sr.description, sr.category_id, sr.urgency, sr.photo_url,
-           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status,
+           sr.latitude, sr.longitude, sr.city, sr.state, sr.address, sr.status, sr.budget,
            sr.created_at,
            c.name as category_name, c.icon as category_icon,
            (SELECT COUNT(*) FROM interests i WHERE i.request_id = sr.id) as interest_count
@@ -157,6 +158,7 @@ router.get('/mine', requireAuth, (req: Request, res: Response) => {
       city: r.city,
       state: r.state,
       address: r.address,
+      budget: r.budget,
       status: r.status,
       interestCount: r.interest_count,
       createdAt: r.created_at,
@@ -165,12 +167,12 @@ router.get('/mine', requireAuth, (req: Request, res: Response) => {
 });
 
 /**
- * PATCH /api/requests/:id — Update request status
+ * PATCH /api/requests/:id — Update request (status or edit fields)
  */
 router.patch('/:id', requireAuth, (req: Request, res: Response) => {
   const requestId = req.params.id;
   const userId = req.user!.id;
-  const { status } = req.body;
+  const { status, title, description, budget, category_id } = req.body;
 
   const request = db.prepare('SELECT * FROM service_requests WHERE id = ?').get(requestId) as any;
   if (!request) {
@@ -179,26 +181,49 @@ router.patch('/:id', requireAuth, (req: Request, res: Response) => {
   }
 
   if (request.client_id !== userId && req.user!.role !== 'admin') {
-    res.status(403).json({ error: 'Apenas o dono do pedido pode alterar o status.' });
+    res.status(403).json({ error: 'Apenas o dono do pedido pode alterá-lo.' });
     return;
   }
 
-  const validTransitions: Record<string, string[]> = {
-    open: ['cancelled', 'in_progress'],
-    in_progress: ['completed'],
-  };
+  // If changing status, validate transition
+  if (status) {
+    const validTransitions: Record<string, string[]> = {
+      open: ['cancelled', 'in_progress'],
+      in_progress: ['completed'],
+    };
+    if (!validTransitions[request.status]?.includes(status)) {
+      res.status(400).json({ error: `Transição inválida de "${request.status}" para "${status}".` });
+      return;
+    }
+    db.prepare("UPDATE service_requests SET status = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(status, requestId);
+    return res.json({ message: 'Status atualizado.', status });
+  }
 
-  if (!validTransitions[request.status]?.includes(status)) {
-    res.status(400).json({
-      error: `Transição inválida de "${request.status}" para "${status}".`,
-    });
+  // Editing fields (only for open requests)
+  if (request.status !== 'open') {
+    res.status(400).json({ error: 'Só é possível editar pedidos abertos.' });
     return;
   }
 
-  db.prepare("UPDATE service_requests SET status = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(status, requestId);
+  const updates: string[] = [];
+  const values: any[] = [];
 
-  res.json({ message: 'Status atualizado com sucesso.', status });
+  if (title !== undefined) { updates.push('title = ?'); values.push(String(title).trim().slice(0, 100)); }
+  if (description !== undefined) { updates.push('description = ?'); values.push(String(description).trim().slice(0, 500)); }
+  if (budget !== undefined) { updates.push('budget = ?'); values.push(budget ? Number(budget) : null); }
+  if (category_id !== undefined) { updates.push('category_id = ?'); values.push(category_id); }
+
+  if (updates.length === 0) {
+    res.status(400).json({ error: 'Nenhum campo para atualizar.' });
+    return;
+  }
+
+  updates.push("updated_at = datetime('now')");
+  values.push(requestId);
+
+  db.prepare(`UPDATE service_requests SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  res.json({ message: 'Pedido atualizado com sucesso.' });
 });
 
 /**
@@ -208,7 +233,6 @@ router.post('/:id/interest', requireAuth, requireRole('provider'), (req: Request
   const requestId = req.params.id;
   const providerId = req.user!.id;
 
-  // Check request exists
   const request = db.prepare('SELECT * FROM service_requests WHERE id = ?').get(requestId) as any;
   if (!request) {
     res.status(404).json({ error: 'Pedido não encontrado.' });
@@ -225,7 +249,6 @@ router.post('/:id/interest', requireAuth, requireRole('provider'), (req: Request
     return;
   }
 
-  // Check if already expressed interest (UNIQUE constraint handles race conditions)
   let interestId: string;
   try {
     interestId = uuidv4();
@@ -240,13 +263,11 @@ router.post('/:id/interest', requireAuth, requireRole('provider'), (req: Request
     throw err;
   }
 
-  // Get provider info for notification
   const provider = db.prepare('SELECT name FROM users WHERE id = ?').get(providerId) as any;
   const category = request.category_id
     ? (db.prepare('SELECT name FROM categories WHERE id = ?').get(request.category_id) as any)
     : null;
 
-  // Notify the client about the new interest
   const catLabel = category ? ` (${category.name})` : '';
   notifyUser(
     request.client_id,
@@ -269,14 +290,12 @@ router.get('/:id/interests', requireAuth, (req: Request, res: Response) => {
   const requestId = req.params.id;
   const userId = req.user!.id;
 
-  // Verify the user owns this request (client) or is a provider who expressed interest
   const request = db.prepare('SELECT * FROM service_requests WHERE id = ?').get(requestId) as any;
   if (!request) {
     res.status(404).json({ error: 'Pedido não encontrado.' });
     return;
   }
 
-  // Non-owners (providers viewing the request): return request info without interests list
   if (request.client_id !== userId && req.user!.role !== 'admin') {
     res.json({
       request: {
@@ -339,7 +358,6 @@ router.get('/:id/interests', requireAuth, (req: Request, res: Response) => {
 
 /**
  * GET /api/requests/open — Provider view: list open service requests (issue #14)
- * Query: ?lat=X&lng=Y&radius=Z&category=X&page=X&limit=X
  */
 router.get('/open', requireAuth, requireRole('provider'), (req: Request, res: Response) => {
   const { lat, lng, radius, category, page, limit } = req.query;
@@ -370,6 +388,7 @@ router.get('/open', requireAuth, requireRole('provider'), (req: Request, res: Re
         longitude: row.longitude,
         city: row.city,
         state: row.state,
+        budget: row.budget,
         createdAt: row.created_at,
         interestCount: row.interest_count,
         client: {

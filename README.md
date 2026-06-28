@@ -1,44 +1,109 @@
-# IworkG — Marketplace de Serviços
+# IworkG — Marketplace de Serviços Locais
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Sprint 2](https://img.shields.io/badge/Sprint-2-blue)]()
+Conecta clientes a prestadores de serviços (eletricistas, encanadores, pedreiros, pintores, etc.) com busca georreferenciada, portfólio visual e sistema de pedidos.
 
-Conecta clientes a prestadores de serviços de construção e manutenção (eletricistas, encanadores, pedreiros, etc.) com busca georreferenciada e portfólio visual "Antes e Depois".
+---
 
-## Stack
+## Stack Tecnológico
 
-| Camada   | Tecnologia                          |
-|----------|-------------------------------------|
-| Backend  | Node.js + Express + TypeScript      |
-| Frontend | React + Vite + TypeScript           |
-| Banco    | SQLite (better-sqlite3)             |
-| Auth     | Google OAuth 2.0 + SMS OTP          |
-| Mapa     | Geolocation API + ViaCEP + Haversine|
-| Testes   | Vitest + Supertest                  |
+| Camada | Tecnologia |
+|---|---|
+| Backend | Node.js + Express 4 + TypeScript 5 |
+| Frontend | React 19 + Vite 8 + TypeScript |
+| Banco de Dados | SQLite (better-sqlite3) |
+| Autenticação | Google OAuth 2.0 + SMS OTP (código via terminal em dev) |
+| Testes | Vitest + Supertest (72 testes) |
+| CI/CD | GitHub Actions (typecheck + testes + build) |
+| Docker | docker-compose com nginx + Node |
 
-## Arquitetura
+---
 
-```mermaid
-graph TD
-    subgraph Frontend ["Frontend (React + Vite)"]
-        Pages["Páginas: Login, Busca, Perfil, Mural, etc."]
-        Components["Componentes: ProtectedRoute, Toast, StarRating, etc."]
-        Services["Services: api.ts + auth, search, requests, etc."]
-        Context["AuthContext (JWT + refresh)"]
-    end
+## Como Rodar
 
-    subgraph Backend ["Backend (Express + SQLite)"]
-        Routes["Rotas: auth, search, providers, requests, etc."]
-        Middleware["Middleware: requireAuth, requireRole, rateLimit"]
-        Services["Services: OTP, Token, Image"]
-        DB["SQLite (better-sqlite3)"]
-    end
+### Pré-requisitos
+- Node.js ≥ 18
+- npm ≥ 9
 
-    Frontend -->|REST JSON| Backend
-    Backend --> DB
+### Passo 1 — Clonar e instalar
+
+```bash
+git clone https://github.com/GrouwBer/IworkG.git
+cd IworkG
+npm run install:all
 ```
 
-## Estrutura
+### Passo 2 — Configurar .env
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+Edite `backend/.env` com suas credenciais:
+```
+PORT=3001
+JWT_SECRET=sua-chave-secreta
+GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=seu-client-secret
+FRONTEND_URL=http://localhost:5173
+```
+
+Edite `frontend/.env`:
+```
+VITE_API_URL=http://localhost:3001
+VITE_GOOGLE_CLIENT_ID=mesmo-client-id-acima
+```
+
+### Passo 3 — Rodar
+
+```bash
+# Terminal 1 — Backend (porta 3001)
+cd backend && npm run dev
+
+# Terminal 2 — Frontend (porta 5173, ou 5174 se 5173 já estiver em uso)
+cd frontend && npm run dev
+```
+
+Acesse **http://localhost:5173** (ou a porta exibida no terminal do Vite)
+
+### Opção Docker
+
+```bash
+docker compose up -d --build
+```
+Acesse **http://localhost** (tudo num container só).
+
+---
+
+## Como Usar
+
+### Login
+- **Google** — clique em "Entrar com Google"
+- **Telefone** — digite o número, o código aparece no terminal do backend
+
+### Cliente
+1. Faça login → Dashboard
+2. Clique em **Buscar Prestadores** — pesquise por nome ou categoria
+3. Clique no perfil de um prestador → veja avaliações e portfólio
+4. Clique em **Publicar Pedido** — descreva o serviço, defina valor máximo (opcional)
+5. Acompanhe em **Meus Pedidos** — veja quem demonstrou interesse
+6. Entre em contato com o prestador escolhido
+
+### Prestador
+1. Dashboard → **Tornar-se Prestador** — preencha o wizard de 6 passos
+2. Após cadastro, acesse o **Mural de Pedidos** para ver demandas de clientes
+3. Clique em **Demonstrar Interesse** nos pedidos que quiser pegar
+4. Também pode **criar seus próprios pedidos** como cliente
+5. Gerencie seu perfil em **Meu Perfil** → **Editar Perfil**
+
+### Editar Pedidos
+- Em **Meus Pedidos**, pedidos abertos têm botão **✏️ Editar**
+- Altere título, descrição e valor máximo
+- Ou **Cancelar** se não precisar mais
+
+---
+
+## Estrutura do Projeto
 
 ```
 IworkG/
@@ -46,7 +111,7 @@ IworkG/
 │   ├── src/
 │   │   ├── config.ts            # Variáveis de ambiente
 │   │   ├── db.ts                # Schema + seed + queries
-│   │   ├── server.ts            # Servidor Express
+│   │   ├── server.ts            # Servidor Express + CORS
 │   │   ├── types.ts             # Tipos TypeScript
 │   │   ├── middleware/
 │   │   │   ├── auth.ts          # requireAuth + requireRole
@@ -61,258 +126,84 @@ IworkG/
 │   │   │   ├── favorites.ts     # Favoritos (toggle)
 │   │   │   ├── notifications.ts # Notificações + preferências
 │   │   │   └── admin.ts         # Painel admin (dashboard, categorias)
-│   │   ├── services/
-│   │   │   ├── otp.ts           # Geração/verificação OTP
-│   │   │   ├── token.ts         # JWT access + refresh tokens
-│   │   │   └── image.ts         # Processamento de imagem (Jimp)
-│   │   └── __tests__/           # Testes de integração
-│   │       └── integration.test.ts
+│   │   ├── services/            # OTP, Token, Image, Notifications
+│   │   └── __tests__/           # 72 testes de integração
 │   ├── data/                    # Banco SQLite (gitignored)
-│   ├── uploads/                 # Imagens de portfólio (gitignored)
-│   ├── .env.example
-│   └── package.json
+│   └── uploads/                 # Imagens de portfólio
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx              # Rotas
-│   │   ├── index.css            # Estilos globais
-│   │   ├── styles/tokens.css    # Design tokens
-│   │   ├── contexts/
-│   │   │   └── AuthContext.tsx  # Estado global de auth
-│   │   ├── components/
-│   │   │   ├── ProtectedRoute.tsx
-│   │   │   ├── Button.tsx
-│   │   │   ├── Card.tsx
-│   │   │   ├── Chip.tsx
-│   │   │   ├── Modal.tsx
-│   │   │   ├── Toast.tsx
-│   │   │   ├── StarRating.tsx
-│   │   │   ├── InteractiveStars.tsx
-│   │   │   ├── PortfolioGallery.tsx
-│   │   │   ├── ReviewSection.tsx
-│   │   │   ├── ReportModal.tsx
-│   │   │   ├── ContactModal.tsx
-│   │   │   ├── ProgressBar.tsx
-│   │   │   └── RaioSlider.tsx
-│   │   ├── pages/
-│   │   │   ├── LoginPage.tsx
-│   │   │   ├── OTPPage.tsx
-│   │   │   ├── AuthCallbackPage.tsx
-│   │   │   ├── ForgotAccessPage.tsx
-│   │   │   ├── DashboardPage.tsx
-│   │   │   ├── SearchPage.tsx
-│   │   │   ├── RequestDetailPage.tsx
-│   │   │   ├── NewRequestPage.tsx
-│   │   │   ├── MyRequestsPage.tsx
-│   │   │   ├── RequestBoardPage.tsx
-│   │   │   ├── ProviderProfilePage.tsx
-│   │   │   ├── ProviderEditPage.tsx
-│   │   │   ├── MyProviderPage.tsx
-│   │   │   ├── ProviderRegisterPage.tsx
-│   │   │   ├── ContactsPage.tsx
-│   │   │   ├── FavoritesPage.tsx
-│   │   │   ├── NotificationsPage.tsx
-│   │   │   ├── NotificationPreferencesPage.tsx
-│   │   │   ├── AdminDashboardPage.tsx
-│   │   │   ├── AdminCategoriesPage.tsx
-│   │   │   ├── AdminPage.tsx
-│   │   │   ├── DesignPage.tsx
-│   │   │   ├── HelpPage.tsx
-│   │   │   ├── TermsPage.tsx
-│   │   │   └── PrivacyPage.tsx
-│   │   └── services/
-│   │       ├── api.ts           # Axios + interceptors
-│   │       ├── auth.ts          # Auth API
-│   │       ├── search.ts        # Search API
-│   │       ├── provider.ts      # Provider wizard API
-│   │       ├── providers.ts     # Provider profile API
-│   │       ├── requests.ts      # Requests API
-│   │       ├── history.ts       # Contacts/Favorites API
-│   │       ├── notifications.ts # Notifications API
-│   │       ├── admin.ts         # Admin API
-│   │       └── location.ts      # Geolocation helpers
-│   ├── .env.example
-│   └── package.json
-├── .github/workflows/
-│   └── test.yml                 # CI pipeline
-├── package.json
-├── .gitignore
+│   │   ├── components/          # Header, ProtectedRoute, Toast, Modal, etc.
+│   │   ├── contexts/            # AuthContext (JWT + refresh)
+│   │   ├── pages/               # 20+ páginas (Login, Busca, Perfil, etc.)
+│   │   └── services/            # API client + serviços
+│   └── nginx.conf               # Config nginx para Docker
+├── docs/                       # Documentação do projeto
+│   ├── o que é o projeto.md.txt
+│   ├── Documento de Requisitos do Sistema.md
+│   ├── diagrama de casos de uso.png
+│   ├── diagrma de casos de uso.md.txt
+│   └── diagrama de classes.txt
+├── docker-compose.yml
+├── .github/workflows/test.yml   # CI pipeline
 └── README.md
 ```
 
-## Como rodar
+---
 
-### Pré-requisitos
+## API — Principais Rotas
 
-- Node.js ≥ 18
-- npm ≥ 9
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/auth/google` | Login com Google |
+| POST | `/api/auth/otp/send` | Enviar código OTP |
+| POST | `/api/auth/otp/verify` | Verificar OTP |
+| GET | `/api/categories` | Listar categorias |
+| GET | `/api/providers/search?query=&category_id=` | Buscar prestadores |
+| GET | `/api/providers/:userId` | Perfil público do prestador |
+| GET | `/api/provider/wizard` | Estado do wizard de cadastro |
+| PUT | `/api/provider/wizard` | Salvar progresso do wizard |
+| POST | `/api/provider/wizard/complete` | Finalizar cadastro |
+| GET | `/api/requests/mine` | Meus pedidos |
+| POST | `/api/requests` | Criar pedido |
+| PATCH | `/api/requests/:id` | Editar/cancelar pedido |
+| GET | `/api/requests/open` | Mural de pedidos (prestador) |
+| POST | `/api/requests/:id/interest` | Demonstrar interesse |
+| POST | `/api/favorites/:userId` | Toggle favorito |
+| GET | `/api/notifications` | Listar notificações |
 
-### Instalação
+---
+
+## Documentação do Projeto
+
+A pasta [`docs/`](docs/) contém os artefatos de análise e design:
+
+| Documento | Descrição |
+|---|---|
+| `o que é o projeto.md.txt` | Visão geral: cliente fictício, empresa, problemas e escopo |
+| `Documento de Requisitos do Sistema.md` | 30 requisitos funcionais + 5 não-funcionais |
+| `diagrama de casos de uso.png` | Diagrama UML de casos de uso |
+| `diagrma de casos de uso.md.txt` | Fonte PlantUML do diagrama de casos de uso |
+| `diagrama de classes.txt` | Fonte PlantUML do diagrama de classes (arquitetura MVC) |
+
+---
+
+## Testes
 
 ```bash
-npm run install:all
+cd backend && npm test    # 72 testes automatizados
 ```
 
-### Desenvolvimento
+---
 
-```bash
-npm run dev
-```
+## CI/CD
 
-Inicia ambos servidores simultaneamente:
-- **Backend:** http://localhost:3001
-- **Frontend:** http://localhost:5173
+Toda pull request ou push em `main`/`dev` dispara:
+- ✅ TypeScript typecheck (backend + frontend)
+- ✅ 72 testes automatizados (Vitest)
+- ✅ Build de produção (Vite)
+- ✅ Build Docker
 
-### Variáveis de ambiente
-
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-Configure no `backend/.env`:
-- `GOOGLE_CLIENT_ID` — ID do app Google Cloud Console
-- `GOOGLE_CLIENT_SECRET` — Secret do app Google
-- `JWT_SECRET` — Chave para assinar tokens JWT
-- `FRONTEND_URL` — URL do frontend (default: http://localhost:5173)
-
-### Build
-
-```bash
-cd backend && npm run build
-cd ../frontend && npm run build
-```
-
-### Testes
-
-```bash
-cd backend && npm test
-```
-
-## Documento de API
-
-### Autenticação (`/api/auth`)
-
-| Método | Rota | Auth | Descrição |
-|--------|------|------|-----------|
-| POST | `/google` | Não | Login com Google ID token |
-| GET | `/google/url` | Não | URL de autorização Google |
-| GET | `/google/callback` | Não | Callback OAuth |
-| POST | `/otp/send` | Não | Enviar código OTP |
-| POST | `/otp/verify` | Não | Verificar OTP e obter tokens |
-| POST | `/refresh` | Não | Renovar access token |
-| POST | `/logout` | Sim | Invalidar token |
-| GET | `/me` | Sim | Dados do usuário logado |
-| POST | `/recover/send` | Não | Enviar código recuperação |
-| POST | `/recover/verify` | Não | Verificar código recuperação |
-| POST | `/recover/reset` | Não | Redefinir método de acesso |
-| DELETE | `/account` | Sim | Excluir/anonymizar conta |
-
-### Busca (`/api`)
-
-| Método | Rota | Auth | Descrição |
-|--------|------|------|-----------|
-| GET | `/categories` | Não | Listar categorias |
-| GET | `/providers/search?lat=&lng=&radius_km=&category_id=&query=` | Não | Buscar prestadores |
-
-### Provider Wizard (`/api/provider`) — requer auth
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/wizard` | Estado do wizard |
-| PUT | `/wizard` | Salvar progresso |
-| POST | `/wizard/complete` | Finalizar cadastro |
-| GET | `/me` | Perfil próprio com serviceRadiusKm |
-| POST | `/portfolio/upload` | Upload de foto (multipart) |
-| GET | `/me/portfolio` | Portfólio próprio |
-| GET | `/:id/portfolio` | Portfólio público |
-
-### Provider Profiles (`/api/providers`)
-
-| Método | Rota | Auth | Descrição |
-|--------|------|------|-----------|
-| GET | `/:id` | Não | Perfil público do prestador |
-| GET | `/profile/mine` | Sim | Perfil próprio para edição |
-| PUT | `/profile` | Sim | Atualizar perfil |
-| POST | `/portfolio` | Sim | Adicionar imagem (URL) |
-| DELETE | `/portfolio/:id` | Sim | Remover imagem |
-| GET | `/:userId/reviews` | Não | Listar avaliações |
-| POST | `/:userId/reviews` | Sim | Criar avaliação |
-| POST | `/:userId/report` | Sim | Denunciar prestador |
-| GET | `/admin/reports` | Admin | Listar denúncias pendentes |
-
-### Requests (`/api/requests`) — requer auth
-
-> ⚠️ Rotas disponíveis a partir do PR #51 (Mural de Pedidos)
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/open` | Buscar pedidos abertos (mural) |
-| POST | `/` | Publicar novo pedido |
-| GET | `/mine` | Meus pedidos (cliente) |
-| GET | `/:id` | Detalhes do pedido |
-| POST | `/:id/interest` | Demonstrar interesse (prestador) |
-| GET | `/:id/interests` | Ver interessados |
-
-### Contacts (`/api/contacts`) — requer auth
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/` | Histórico de contatos |
-| POST | `/` | Registrar novo contato |
-
-### Favorites (`/api/favorites`) — requer auth
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/` | Listar favoritos |
-| POST | `/:providerId` | Toggle favorito |
-| GET | `/check/:providerId` | Verificar se favoritado |
-
-### Notifications (`/api/notifications`) — requer auth
-
-> ⚠️ Rotas de preferências (`/preferences`) disponíveis a partir do PR #55 (Notificações Push)
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/` | Listar notificações + unreadCount |
-| PATCH | `/:id/read` | Marcar como lida |
-| PATCH | `/read-all` | Marcar todas como lidas |
-| GET | `/preferences` | Preferências de notificação |
-| PUT | `/preferences` | Atualizar preferências |
-
-### Admin (`/api/admin`) — requer role admin
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/stats?days=30` | Dashboard analytics |
-| GET | `/categories` | Categorias com contagem |
-| POST | `/categories` | Criar categoria |
-| PUT | `/categories/:id` | Editar categoria |
-| DELETE | `/categories/:id` | Soft/hard delete categoria |
-
-## Fluxos Principais
-
-### Cliente — Busca e Contratação
-1. Login (Google ou OTP) → `/buscar`
-2. Busca por categoria + geolocalização automática
-3. Visualiza perfil do prestador (avaliações, portfólio)
-4. Publica pedido → `/publicar`
-5. Recebe interesses → notificação
-6. Visualiza interessados → contato
-
-### Prestador — Cadastro e Serviço
-1. Login → Dashboard
-2. "Tornar-se Prestador" → Wizard 5 etapas
-3. Upload de portfólio "Antes e Depois"
-4. Toggle disponível/ocupado + raio de atuação
-5. Mural de pedidos → demonstrar interesse
-6. Recebe avaliações → notificação
-
-### Admin — Gestão
-1. Login como admin → `/admin/dashboard`
-2. Dashboard com métricas (período selecionável)
-3. CRUD de categorias
-4. Revisão de denúncias
+---
 
 ## Licença
 

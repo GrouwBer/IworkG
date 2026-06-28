@@ -15,6 +15,7 @@ export interface ServiceRequest {
   address: string | null;
   status: 'open' | 'in_progress' | 'completed' | 'cancelled';
   interestCount: number;
+  budget: number | null;
   createdAt: string;
   client?: {
     id: string;
@@ -49,6 +50,7 @@ export interface OpenRequest {
   title: string;
   description: string | null;
   urgency: 'Alta' | 'Media' | 'Baixa';
+  budget: number | null;
   status: string;
   latitude: number | null;
   longitude: number | null;
@@ -90,6 +92,7 @@ export interface CreateRequestData {
   description?: string;
   category_id: string;
   urgency?: string;
+  budget?: number;
   photo_url?: string;
   lat?: number;
   lng?: number;
@@ -123,6 +126,7 @@ function toCamelCase(r: any): ServiceRequest {
     address: r.address,
     status: r.status,
     interestCount: r.interestCount ?? r.interest_count ?? 0,
+    budget: r.budget ?? null,
     createdAt: r.createdAt ?? r.created_at,
     client: r.client ? r.client : (r.client_id ? { id: r.client_id, name: r.client_name, avatarUrl: r.client_avatar } : undefined),
   };
@@ -152,7 +156,7 @@ export const requestService = {
     };
   },
 
-  async updateRequest(id: string, data: { status: string }): Promise<{ message: string; status: string }> {
+  async updateRequest(id: string, data: { status?: string; title?: string; description?: string; budget?: number | null }): Promise<{ message: string; status?: string }> {
     const { data: response } = await api.patch(`/api/requests/${id}`, data);
     return response;
   },
