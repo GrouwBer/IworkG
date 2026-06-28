@@ -143,6 +143,7 @@ IworkG/
 │   ├── diagrama de casos de uso.png
 │   ├── diagrma de casos de uso.md.txt
 │   └── diagrama de classes.txt
+│   ├── roteiro-apresentacao.md  # Roteiro para apresentação
 ├── docker-compose.yml
 ├── .github/workflows/test.yml   # CI pipeline
 └── README.md
@@ -183,7 +184,8 @@ A pasta [`docs/`](docs/) contém os artefatos de análise e design:
 | `Documento de Requisitos do Sistema.md` | 30 requisitos funcionais + 5 não-funcionais |
 | `diagrama de casos de uso.png` | Diagrama UML de casos de uso |
 | `diagrma de casos de uso.md.txt` | Fonte PlantUML do diagrama de casos de uso |
-| `diagrama de classes.txt` | Fonte PlantUML do diagrama de classes (arquitetura MVC) |
+| `diagrama de classes.txt` | Fonte PlantUML do diagrama de classes (18 tabelas SQLite) |
+| `roteiro-apresentacao.md` | Roteiro completo para apresentação em grupo (6 pessoas) |
 
 ---
 
