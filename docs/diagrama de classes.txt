@@ -5,11 +5,9 @@ skinparam monochrome false
 skinparam shadowing true
 skinparam roundcorner 10
 
-' Ajuste de layout vertical estável
-skinparam nodesep 50
-skinparam ranksep 70
+skinparam nodesep 60
+skinparam ranksep 80
 skinparam linetype ortho
-skinparam groupInheritance 2
 
 skinparam class {
     BackgroundColor White
@@ -23,233 +21,286 @@ skinparam package {
 }
 
 ' ==========================================
-' CAMADA VIEW
+' DOMÍNIO PRINCIPAL
 ' ==========================================
-package "View (Camada de Apresentação)" {
-  class TelaLogin {
-    + renderizarFormulario(): void
-    + exibirMensagemErro(msg: String): void
-    + coletarCredenciais(): void
-  }
-  
-  class TelaPrincipalCliente {
-    + renderizarMapaInterativo(): void
-    + exibirResultadosBusca(lista: List): void
-    + exibirFormularioPedido(): void
-    + acionarWhatsApp(telefone: String): void
-  }
-  
-  class TelaPerfilPrestador {
-    + exibirPortfolio(imagens: List): void
-    + renderizarAvaliacoesEDesafios(): void
-    + exibirPedidosProximos(): void
-    + alternarBotaoDisponibilidade(): void
+package "Domínio Principal" {
+
+  class users {
+    + id: TEXT (PK)
+    + name: TEXT
+    + email: TEXT (UNIQUE)
+    + phone: TEXT (UNIQUE)
+    + avatar_url: TEXT
+    + google_id: TEXT (UNIQUE)
+    + role: TEXT (client|provider|admin)
+    + banned: INTEGER
+    + deleted_at: TEXT
+    + created_at: TEXT
+    + updated_at: TEXT
   }
 
-  class TelaDashboardAdmin {
-    + exibirGraficosMetricas(): void
-    + listarUsuariosDenunciados(): void
-    + renderizarPainelCategorias(): void
+  class provider_profiles {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users, UNIQUE)
+    + category_id: TEXT (FK → categories)
+    + description: TEXT
+    + rating: REAL
+    + review_count: INTEGER
+    + latitude: REAL
+    + longitude: REAL
+    + city: TEXT
+    + state: TEXT
+    + active: INTEGER
+    + experience_years: INTEGER
+    + service_radius_km: REAL
+    + address: TEXT
+    + contact_count: INTEGER
+    + created_at: TEXT
+    + updated_at: TEXT
   }
+
+  class categories {
+    + id: TEXT (PK)
+    + name: TEXT
+    + slug: TEXT (UNIQUE)
+    + icon: TEXT
+    + deleted_at: TEXT
+    + created_at: TEXT
+  }
+
+  class provider_categories <<many-to-many>> {
+    + provider_id: TEXT (FK → provider_profiles)
+    + category_id: TEXT (FK → categories)
+  }
+
+  class service_requests {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK → users)
+    + title: TEXT
+    + description: TEXT
+    + category_id: TEXT (FK → categories)
+    + city: TEXT
+    + state: TEXT
+    + latitude: REAL
+    + longitude: REAL
+    + status: TEXT (open|in_progress|completed|cancelled)
+    + urgency: TEXT (low|medium|high)
+    + max_value: REAL
+    + photo_url: TEXT
+    + address: TEXT
+    + created_at: TEXT
+    + updated_at: TEXT
+  }
+
+  class interests {
+    + id: TEXT (PK)
+    + request_id: TEXT (FK → service_requests)
+    + provider_id: TEXT (FK → users)
+    + created_at: TEXT
+  }
+
+  class reviews {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK → users)
+    + provider_id: TEXT (FK → provider_profiles)
+    + contact_id: TEXT (FK → contact_history)
+    + rating: INTEGER (1-5)
+    + comment: TEXT
+    + response: TEXT
+    + created_at: TEXT
+  }
+
+  class contact_history {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK → users)
+    + provider_id: TEXT (FK → users)
+    + contact_type: TEXT
+    + created_at: TEXT
+  }
+
+  class favorites {
+    + id: TEXT (PK)
+    + client_id: TEXT (FK → users)
+    + provider_id: TEXT (FK → users)
+    + created_at: TEXT
+  }
+
+  ' Relacionamentos
+  users ||--o| provider_profiles : "tem perfil"
+  users ||--o{ service_requests : "publica"
+  users ||--o{ interests : "demonstra interesse"
+  users ||--o{ reviews : "avalia"
+  users ||--o{ contact_history : "inicia contato (cliente)"
+  users ||--o{ contact_history : "recebe contato (prestador)"
+  users ||--o{ favorites : "favorita"
+
+  provider_profiles ||--o| categories : "categoria principal"
+  provider_profiles ||--o{ provider_categories : "categorias extras"
+  provider_categories }o--|| categories : ""
+  provider_profiles ||--o{ reviews : "recebe avaliações"
+  provider_profiles ||--o{ portfolio_photos : "possui"
+
+  service_requests ||--o| categories : "categoria"
+  service_requests ||--o{ interests : "recebe interesses"
 }
 
 ' ==========================================
-' CAMADA CONTROLLER
+' AUTENTICAÇÃO E SEGURANÇA
 ' ==========================================
-package "Controller (Camada de Controle)" {
-  class AutenticacaoController {
-    + processarLogin(email: String, senha: String): boolean
-    + solicitarRecuperacaoSenha(email: String): void
-    + encerrarSessaoAtiva(): void
-  }
-  
-  class ClienteController {
-    + processarBusca(categoria: CategoriaServico): List<Prestador>
-    + salvarPedidoServico(descricao: String, foto: String): void
-    + enviarAvaliacao(prestador: Prestador, nota: int, comentario: String): void
-    + processarFavorito(prestador: Prestador): void
-    + registrarNovoContatoPush(prestador: Prestador): void
-  }
-  
-  class PrestadorController {
-    + carregarPedidosAbertos(lat: double, long: double): List<PedidoServico>
-    + registrarInteresseEmPedido(pedido: PedidoServico): void
-    + responderAvaliacaoCliente(avaliacao: Avaliacao, resposta: String): void
-    + atualizarRaioAtuacao(km: float): void
+package "Autenticação e Segurança" {
+
+  class refresh_tokens {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users)
+    + token: TEXT (UNIQUE)
+    + expires_at: TEXT
+    + revoked: INTEGER
+    + created_at: TEXT
   }
 
-  class AdminController {
-    + processarBanimento(id_usuario: int): void
-    + atualizarCategoriasGlobais(cat: CategoriaServico): void
-    + moderarConteudoDenunciado(usuario: Usuario): void
+  class otp_codes {
+    + id: TEXT (PK)
+    + phone: TEXT
+    + code: TEXT
+    + expires_at: TEXT
+    + used: INTEGER
+    + identifier_type: TEXT
+    + created_at: TEXT
   }
+
+  class blacklisted_tokens {
+    + id: TEXT (PK)
+    + token_jti: TEXT (UNIQUE)
+    + expires_at: TEXT
+    + created_at: TEXT
+  }
+
+  class recovery_tokens {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users)
+    + identifier: TEXT
+    + token: TEXT (UNIQUE)
+    + expires_at: TEXT
+    + used: INTEGER
+    + created_at: TEXT
+  }
+
+  users ||--o{ refresh_tokens : "possui"
+  users ||--o{ recovery_tokens : "solicita"
 }
 
 ' ==========================================
-' CAMADA MODEL
+' PRESTADOR — WIZARD E PORTFÓLIO
 ' ==========================================
-package "Model (Camada de Negócio)" {
-  abstract class Usuario {
-    - id_usuario: int
-    - telefone: String
-    - email: String
-    - senha: String
-    - foto_perfil: String
-    - status_conta: boolean
-    + realizarLogin(): void
-    + recuperarSenha(): void
-    + editarDadosPessoais(): void
-    + excluirConta(): void
-    + encerrarSessao(): void
+package "Prestador — Wizard e Portfólio" {
+
+  class provider_wizard_state {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users, UNIQUE)
+    + current_step: INTEGER (1-6)
+    + step_data: TEXT (JSON)
+    + created_at: TEXT
+    + updated_at: TEXT
   }
 
-  class Administrador {
-    + moderarUsuariosEFotos(): void
-    + banirUsuarioInfrator(): void
-    + gerenciarCategoriasDeServico(): void
-    + visualizarDashboardDeMetricas(): void
+  class portfolio_photos {
+    + id: TEXT (PK)
+    + provider_id: TEXT (FK → provider_profiles)
+    + filename: TEXT
+    + original_name: TEXT
+    + mime_type: TEXT
+    + size_bytes: INTEGER
+    + tag: TEXT (Antes|Depois|Geral)
+    + sort_order: INTEGER
+    + created_at: TEXT
   }
 
-  class Cliente {
-    - localizacao_atual_lat: double
-    - localizacao_atual_long: double
-    + informarLocalizacao(): void
-    + buscarProfissionais(categoria: CategoriaServico): List<Prestador>
-    + favoritarPrestador(prestador: Prestador): void
-    + denunciarIrregularidade(usuario: Usuario): void
-    + publicarPedido(descricao: String, foto: String): void
-    + avaliarPrestador(prestador: Prestador, nota: int, comentario: String): void
-  }
-
-  class Prestador {
-    - status_disponibilidade: String
-    - raio_atuacao_km: float
-    - portfolio_imagens: List<String>
-    - media_avaliacoes: float
-    + cadastrarPerfil(): void
-    + gerenciarPortfolio(): void
-    + alterarStatus(): void
-    + definirRaioAtuacao(): void
-    + demonstrarInteresse(pedido: PedidoServico): void
-    + buscarPedidosAbertos(localizacao: double[]): List<PedidoServico>
-    + responderAvaliacao(avaliacao: Avaliacao, resposta: String): void
-  }
-
-  class PedidoServico {
-    - id_pedido: int
-    - descricao_problema: String
-    - foto_problema: String
-    - status_pedido: String
-  }
-
-  class Avaliacao {
-    - id_avaliacao: int
-    - nota: int
-    - comentario_cliente: String
-    - resposta_prestador: String
-  }
-
-  class CategoriaServico {
-    - id_categoria: int
-    - nome_categoria: String
-  }
-  
-  class RegistroContato {
-    - id_registro: int
-    - data_hora_clique: Date
-    - origem_clique: String
-    - convertido: boolean
-  }
-  
-  ' Heranças estruturadas de forma limpa (Sem direções ambíguas)
-  Usuario <|-- Administrador
-  Usuario <|-- Cliente
-  Usuario <|-- Prestador
-  
-  ' Relacionamentos da Model
-  Cliente "1" -- "0..*" Avaliacao : faz >
-  Avaliacao "0..*" -- "1" Prestador : recebe <
-  Cliente "0..*" -- "0..*" Prestador : favorita >
-  
-  Cliente "1" -- "0..*" RegistroContato : inicia contato >
-  RegistroContato "0..*" -- "1" Prestador : direcionado a >
-  
-  Cliente "1" -- "0..*" PedidoServico : publica >
-  Prestador "0..*" -- "0..*" PedidoServico : demonstra interesse >
-  
-  Prestador "0..*" -- "1..*" CategoriaServico : atua em >
-  PedidoServico "0..*" -- "1..*" CategoriaServico : possui >
+  users ||--o| provider_wizard_state : "progresso wizard"
 }
 
 ' ==========================================
-' CAMADA DAO
+' NOTIFICAÇÕES
 ' ==========================================
-package "DAO (Camada de Persistência)" {
-  interface IGenericDAO<T> <<interface>> {
-    + inserir(obj: T): boolean
-    + atualizar(obj: T): boolean
-    + deletar(id: int): boolean
-    + buscarPorId(id: int): T
-    + listarTodos(): List<T>
+package "Notificações" {
+
+  class notifications {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users)
+    + type: TEXT
+    + title: TEXT
+    + body: TEXT
+    + data: TEXT (JSON)
+    + read: INTEGER
+    + created_at: TEXT
   }
 
-  class UsuarioDAO {
-    + buscarPorEmailESenha(email: String, senha: String): Usuario
-    + inativarConta(id_usuario: int): boolean
-  }
-  
-  class PrestadorDAO {
-    + buscarPorCategoriaERaio(id_cat: int, lat: double, long: double, raio: float): List<Prestador>
-    + adicionarFavorito(id_cliente: int, id_prestador: int): boolean
-  }
-  
-  class RegistroContatoDAO {
-    + salvarMetricaLead(registro: RegistroContato): boolean
-    + contarLeadsPorPrestador(id_prestador: int): int
-  }
-  
-  class PedidoDAO {
-    + salvarNovoPedido(p: PedidoServico): boolean
-    + listarPedidosProximos(lat: double, long: double, raio: float): List<PedidoServico>
-    + registrarInteressePrestador(id_pedido: int, id_prestador: int): boolean
+  class notification_preferences {
+    + user_id: TEXT (PK, FK → users)
+    + new_requests: INTEGER
+    + interests: INTEGER
+    + reviews: INTEGER
+    + promotions: INTEGER
   }
 
-  class AvaliacaoDAO {
-    + salvarAvaliacaoEResposta(a: Avaliacao): boolean
-    + atualizarMediaPrestador(id_prestador: int): void
-  }
-
-  ' Implementação das Interfaces sem conflito de rota
-  IGenericDAO <|.. UsuarioDAO
-  IGenericDAO <|.. PrestadorDAO
-  IGenericDAO <|.. RegistroContatoDAO
-  IGenericDAO <|.. PedidoDAO
-  IGenericDAO <|.. AvaliacaoDAO
+  users ||--o{ notifications : "recebe"
+  users ||--|| notification_preferences : "configura"
 }
 
 ' ==========================================
-' FLUXO E DEPENDÊNCIAS ENTRE CAMADAS (Top-Down)
+' ADMINISTRAÇÃO
 ' ==========================================
-TelaLogin ..> AutenticacaoController
-TelaPrincipalCliente ..> ClienteController
-TelaPerfilPrestador ..> PrestadorController
-TelaDashboardAdmin ..> AdminController
+package "Administração" {
 
-AutenticacaoController ..> UsuarioDAO
-ClienteController ..> PrestadorDAO
-ClienteController ..> PedidoDAO
-ClienteController ..> AvaliacaoDAO
-ClienteController ..> RegistroContatoDAO
-PrestadorController ..> PedidoDAO
-PrestadorController ..> AvaliacaoDAO
-AdminController ..> UsuarioDAO
-AdminController ..> RegistroContatoDAO
+  class reports {
+    + id: TEXT (PK)
+    + reporter_id: TEXT (FK → users)
+    + target_type: TEXT
+    + target_id: TEXT
+    + reason: TEXT
+    + description: TEXT
+    + status: TEXT (pending|resolved|dismissed)
+    + resolved_by: TEXT (FK → users)
+    + resolution: TEXT
+    + created_at: TEXT
+    + resolved_at: TEXT
+  }
 
-AutenticacaoController ..> Usuario
-ClienteController ..> Cliente
-ClienteController ..> PedidoServico
-ClienteController ..> RegistroContato
-PrestadorController ..> Prestador
-AdminController ..> Administrador
+  class bans {
+    + id: TEXT (PK)
+    + user_id: TEXT (FK → users)
+    + admin_id: TEXT (FK → users)
+    + reason: TEXT
+    + revoked: INTEGER
+    + created_at: TEXT
+    + revoked_at: TEXT
+    + revoked_by: TEXT
+  }
+
+  class admin_actions {
+    + id: TEXT (PK)
+    + admin_id: TEXT (FK → users)
+    + action_type: TEXT
+    + target_type: TEXT
+    + target_id: TEXT
+    + justification: TEXT
+    + created_at: TEXT
+  }
+
+  users ||--o{ reports : "denuncia"
+  users ||--o{ bans : "é banido"
+  users ||--o{ admin_actions : "executa ação admin"
+}
+
+' ==========================================
+' LEGENDA
+' ==========================================
+legend right
+  |= Tipo |= Descrição |
+  | PK | Chave Primária |
+  | FK | Chave Estrangeira |
+  | UNIQUE | Valor único |
+  | JSON | Campo serializado |
+  | TEXT | String / UUID |
+endlegend
 
 @enduml

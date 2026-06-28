@@ -6,78 +6,97 @@ actor "Cliente" as C
 actor "Prestador" as P
 actor "Administrador" as ADM
 
-rectangle "IWork App" {
-  
-  ' Casos de Uso Gerais / Compartilhados / Cliente
+rectangle "IWork App (MVP)\n94,9% requisitos implementados" {
+
+  ' Casos de Uso Gerais / Compartilhados
   usecase "Buscar Profissionais" as UC_Buscar
   usecase "Visualizar Histórico de Contatos" as UC_HistContatos
   usecase "Consultar Termos de Uso" as UC_Termos
+  usecase "Consultar Política de Privacidade" as UC_Privacidade
   usecase "Excluir Conta" as UC_Excluir
   usecase "Encerrar Sessão" as UC_Encerrar
   usecase "Configurar Notificações" as UC_ConfigNotif
   usecase "Acessar Central de Ajuda" as UC_Ajuda
   usecase "Editar Dados Pessoais" as UC_EditarDados
-  
+  usecase "Recuperar Acesso" as UC_Recuperar
+
   ' Casos de Uso Exclusivos do Prestador
   usecase "Responder Avaliação" as UC_RespAvaliacao
-  usecase "Buscar Pedidos Abertos" as UC_BuscarPedidos
-  usecase "Cadastrar Perfil" as UC_CadPerfil
+  usecase "Buscar Pedidos Abertos (Mural)" as UC_BuscarPedidos
+  usecase "Cadastrar Perfil (Wizard 6 passos)" as UC_CadPerfil
   usecase "Gerenciar Portfólio" as UC_GenPortfolio
   usecase "Alterar Status (Disponibilidade)" as UC_AltStatus
   usecase "Visualizar Notificações" as UC_VisNotif
   usecase "Definir Raio de Atuação" as UC_RaioAtuacao
-  
+  usecase "Dashboard do Prestador" as UC_DashPrestador
+
   ' Casos de Uso do Administrador
   usecase "Gerenciar Categorias de Serviço" as UC_GenCategorias
-  usecase "Moderar Usuários e Fotos" as UC_Moderar
+  usecase "Moderar Usuários e Denúncias" as UC_Moderar
   usecase "Visualizar Dashboard de Métricas" as UC_Dashboard
   usecase "Banir Usuário Infrator" as UC_Banir
-  
-  ' Casos de Uso à Direita (Estendidos e Incluídos)
+  usecase "Revogar Banimento" as UC_Unban
+
+  ' Casos de Uso do Cliente (Estendidos e Incluídos)
   usecase "Iniciar Contato" as UC_IniciarContato
   usecase "Publicar Pedido de Serviço" as UC_PublicarPedido
+  usecase "Editar Pedido" as UC_EditarPedido
+  usecase "Cancelar Pedido" as UC_CancelarPedido
   usecase "Avaliar Prestador" as UC_Avaliar
   usecase "Aplicar Filtros" as UC_Filtros
   usecase "Denunciar Irregularidade" as UC_Denunciar
-  usecase "Compartilhar Perfil" as UC_Compartilhar
   usecase "Favoritar Prestador" as UC_Favoritar
   usecase "Informar Localização" as UC_InfLocalizacao
   usecase "Realizar Login" as UC_Login
   usecase "Demonstrar Interesse no Pedido" as UC_DemoInteresse
 
-  ' Relacionamentos Extends e Includes do Miolo
+  ' ═══ Relacionamentos Include ═══
   UC_IniciarContato ..> UC_Login : <<include>>
   UC_PublicarPedido ..> UC_Login : <<include>>
+  UC_EditarPedido ..> UC_Login : <<include>>
+  UC_CancelarPedido ..> UC_Login : <<include>>
   UC_Avaliar ..> UC_Login : <<include>>
   UC_Denunciar ..> UC_Login : <<include>>
   UC_Favoritar ..> UC_Login : <<include>>
   UC_DemoInteresse ..> UC_Login : <<include>>
-  
+  UC_Recuperar ..> UC_Login : <<include>>
+
+  ' ═══ Relacionamentos Extend ═══
   UC_HistContatos .up.> UC_Buscar : <<extend>>
   UC_Avaliar .up.> UC_Buscar : <<extend>>
   UC_Filtros .up.> UC_Buscar : <<extend>>
   UC_Denunciar .up.> UC_Buscar : <<extend>>
-  UC_Compartilhar .up.> UC_Buscar : <<extend>>
   UC_Favoritar .up.> UC_Buscar : <<extend>>
-  
   UC_Buscar ..> UC_InfLocalizacao : <<include>>
-  
   UC_Banir .left.> UC_Moderar : <<extend>>
+  UC_Unban .left.> UC_Moderar : <<extend>>
+  UC_EditarPedido .up.> UC_PublicarPedido : <<extend>>
+  UC_CancelarPedido .up.> UC_PublicarPedido : <<extend>>
+
+  ' ═══ NÃO IMPLEMENTADO ═══
+  usecase "Compartilhar Perfil\n(NÃO IMPLEMENTADO)" as UC_Compartilhar #FFCCCC
+  UC_Compartilhar .up.> UC_Buscar : <<extend>>
 }
 
-' Conexões do Cliente (Atores da Esquerda)
+' ═══ Conexões do Cliente ═══
 C --> UC_Buscar
 C --> UC_HistContatos
 C --> UC_Termos
+C --> UC_Privacidade
 C --> UC_Excluir
 C --> UC_Encerrar
 C --> UC_ConfigNotif
 C --> UC_Ajuda
 C --> UC_EditarDados
 C --> UC_Login
+C --> UC_Recuperar
+C --> UC_PublicarPedido
+C --> UC_EditarPedido
+C --> UC_CancelarPedido
 
-' Conexões do Prestador
+' ═══ Conexões do Prestador ═══
 P --> UC_Termos
+P --> UC_Privacidade
 P --> UC_Excluir
 P --> UC_Encerrar
 P --> UC_ConfigNotif
@@ -91,11 +110,20 @@ P --> UC_AltStatus
 P --> UC_VisNotif
 P --> UC_RaioAtuacao
 P --> UC_Login
+P --> UC_Recuperar
 P --> UC_DemoInteresse
+P --> UC_DashPrestador
+P --> UC_Buscar
+P --> UC_IniciarContato
 
-' Conexões do Administrador
+' ═══ Conexões do Administrador ═══
 ADM --> UC_GenCategorias
 ADM --> UC_Moderar
 ADM --> UC_Dashboard
+
+note bottom of UC_Compartilhar
+  RF014 — deixado para
+  versão futura do app
+end note
 
 @enduml

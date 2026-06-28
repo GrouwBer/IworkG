@@ -1,4 +1,4 @@
-Projeto -  Cliente Fictício e Casos de uso
+Projeto - Cliente Fictício e Casos de uso
 
 Parte 1: Cliente Fictício
 
@@ -48,3 +48,79 @@ Trata-se de um marketplace de serviços locais focado em alta confiança e baixa
 
 O foco da plataforma não é gerenciar o pagamento, mas sim resolver o problema estrutural do encontro (matchmaking) entre a demanda qualificada e a mão de obra verificada, reduzindo drasticamente a carga cognitiva e o tempo de espera de ambos os usuários.
 
+
+═══════════════════════════════════════════════════════════════
+PARTE 2: Resultado Final — MVP Entregue (Junho/2026)
+═══════════════════════════════════════════════════════════════
+
+8. O que foi construído
+
+O sistema IworkG foi implementado como uma aplicação web full-stack, superando o escopo original de app mobile. A decisão por web foi pragmática — permitiu desenvolvimento mais rápido, deploy simplificado e alcance universal (qualquer navegador moderno).
+
+Stack Tecnológica Real:
+
+| Camada | Tecnologia |
+|---|---|
+| Frontend | React 19 + Vite 8 + TypeScript |
+| Backend | Node.js + Express 4 + TypeScript |
+| Banco de Dados | SQLite (better-sqlite3, WAL mode) |
+| Autenticação | Google OAuth 2.0 + OTP via SMS (simulado) |
+| Testes | Vitest + Supertest — 72 testes de integração |
+| CI/CD | GitHub Actions (typecheck + testes + build automático) |
+| Containerização | Docker + docker-compose + nginx |
+
+9. Funcionalidades Entregues
+
+O MVP cobre 37 dos 39 requisitos funcionais (94,9%), incluindo 9 requisitos que emergiram durante o desenvolvimento:
+
+Jornada do Cliente:
+- Login com Google ou telefone (OTP) e recuperação de acesso
+- Busca de prestadores por nome, categoria e localização
+- Perfil público do prestador com avaliações, portfólio e contato
+- Publicação, edição e cancelamento de pedidos de serviço
+- Acompanhamento dos próprios pedidos e interesses recebidos
+- Avaliação (1-5 estrelas) com comentário após contato
+- Favoritos e histórico de contatos
+- Denúncia de perfis irregulares
+- Configuração granular de notificações
+
+Jornada do Prestador:
+- Wizard de cadastro em 6 passos com progresso salvo
+- Portfólio com upload de fotos (antes/depois/geral)
+- Mural de Pedidos com busca de demandas de clientes
+- Demonstrar interesse em pedidos
+- Dashboard pessoal com métricas (avaliações, contatos)
+- Edição de perfil completa (descrição, categorias, experiência, raio)
+- Alternar disponibilidade (ativo/ocupado)
+- Resposta pública a avaliações de clientes
+- Múltiplas categorias de atuação
+
+Painel Administrativo:
+- Dashboard com métricas gerais da plataforma
+- Gerenciamento de denúncias (aprovar/rejeitar)
+- Banimento e revogação de ban de usuários
+- CRUD de categorias de serviço (12 categorias padrão)
+- Registro de auditoria (admin_actions)
+
+Infraestrutura:
+- Docker: `docker compose up` sobe tudo num comando
+- CI/CD: push/PR em main/dev dispara typecheck + 72 testes + build
+- Seed: 30 prestadores + 15 pedidos + avaliações para testes
+- JWT com refresh token e blacklist para segurança
+- Soft delete (LGPD) para exclusão de contas
+- Rate limiting em endpoints sensíveis
+
+10. O que ficou para versões futuras
+
+- RF014 — Compartilhar Perfil de prestador
+- GPS automático (hoje localização é textual)
+- App mobile nativo (Android/iOS)
+- Pagamentos integrados
+- Chat em tempo real
+- Notificações push reais
+
+11. Links
+
+- Repositório: https://github.com/GrouwBer/IworkG
+- README completo com instruções de instalação e uso
+- Documentação técnica: pasta `docs/` com requisitos, diagramas e modelos
