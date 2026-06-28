@@ -6,7 +6,7 @@ actor "Cliente" as C
 actor "Prestador" as P
 actor "Administrador" as ADM
 
-rectangle "IWork App (MVP)\n94,9% requisitos implementados" {
+rectangle "IWork App (MVP)" {
 
   ' Casos de Uso Gerais / Compartilhados
   usecase "Buscar Profissionais" as UC_Buscar
@@ -72,10 +72,6 @@ rectangle "IWork App (MVP)\n94,9% requisitos implementados" {
   UC_Unban .left.> UC_Moderar : <<extend>>
   UC_EditarPedido .up.> UC_PublicarPedido : <<extend>>
   UC_CancelarPedido .up.> UC_PublicarPedido : <<extend>>
-
-  ' ═══ NÃO IMPLEMENTADO ═══
-  usecase "Compartilhar Perfil\n(NÃO IMPLEMENTADO)" as UC_Compartilhar #FFCCCC
-  UC_Compartilhar .up.> UC_Buscar : <<extend>>
 }
 
 ' ═══ Conexões do Cliente ═══
@@ -120,10 +116,5 @@ P --> UC_IniciarContato
 ADM --> UC_GenCategorias
 ADM --> UC_Moderar
 ADM --> UC_Dashboard
-
-note bottom of UC_Compartilhar
-  RF014 — deixado para
-  versão futura do app
-end note
 
 @enduml
