@@ -110,9 +110,6 @@ export default function DashboardPage() {
             <button onClick={() => navigate('/prestador/meu-perfil')} style={{ ...styles.ctaBtn, backgroundColor: '#1a1a2e' }}>
               👤 Meu Perfil
             </button>
-            <button onClick={() => navigate('/mural')} style={{ ...styles.ctaBtn, backgroundColor: '#2563eb', marginTop: 8 }}>
-              📋 Mural de Pedidos
-            </button>
           </div>
         )}
 
@@ -128,7 +125,7 @@ export default function DashboardPage() {
         {user?.role === 'admin' && (
           <div style={styles.ctaBox}>
             <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Painel Administrativo</p>
-            <button onClick={() => navigate('/admin')} style={styles.ctaBtn}>
+            <button onClick={() => navigate('/admin/dashboard')} style={styles.ctaBtn}>
               ⚙️ Ir para Admin
             </button>
           </div>

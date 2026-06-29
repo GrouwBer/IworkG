@@ -12,10 +12,11 @@ export const providerService = {
   async saveWizard(step: number, data: Record<string, any>) { const { data: res } = await api.put('/api/provider/wizard', { step, data }); return res; },
   async completeWizard(p: { categories: string[]; description: string; experience_years: number; service_radius_km: number; address: string; city: string; state: string }) { const { data } = await api.post('/api/provider/wizard/complete', p); return data; },
   // Profile
-  async getMyProfile(): Promise<ProviderProfile> { const { data } = await api.get('/api/providers/me'); return data; },
+  async getMyProfile(): Promise<ProviderProfile> { const { data } = await api.get('/api/provider/me'); return data; },
+  async updateMyProfile(profileData: any): Promise<any> { const { data } = await api.put('/api/provider/me', profileData); return data; },
   // Portfolio
-  async uploadPhoto(file: File, tag: string): Promise<PortfolioPhoto> { const fd = new FormData(); fd.append('photo', file); const { data } = await api.post(`/api/providers/portfolio/upload?tag=${encodeURIComponent(tag)}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); return data; },
-  async getMyPortfolio(): Promise<PortfolioResponse> { const { data } = await api.get('/api/providers/me/portfolio'); return data; },
-  async getPortfolio(providerId: string): Promise<PortfolioResponse> { const { data } = await api.get(`/api/providers/${providerId}/portfolio`); return data; },
-  async deletePhoto(photoId: string): Promise<void> { await api.delete(`/api/providers/portfolio/${photoId}`); },
+  async uploadPhoto(file: File, tag: string): Promise<PortfolioPhoto> { const fd = new FormData(); fd.append('photo', file); const { data } = await api.post(`/api/provider/portfolio/upload?tag=${encodeURIComponent(tag)}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); return data; },
+  async getMyPortfolio(): Promise<PortfolioResponse> { const { data } = await api.get('/api/provider/me/portfolio'); return data; },
+  async getPortfolio(providerId: string): Promise<PortfolioResponse> { const { data } = await api.get(`/api/provider/${providerId}/portfolio`); return data; },
+  async deletePhoto(photoId: string): Promise<void> { await api.delete(`/api/provider/portfolio/${photoId}`); },
 };

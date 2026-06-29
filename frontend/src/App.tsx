@@ -22,7 +22,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import RequestBoardPage from './pages/RequestBoardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminCategoriesPage from './pages/AdminCategoriesPage';
-// AdminPage imported but route pending
+import AdminPage from './pages/AdminPage';
 import NotificationsPage from './pages/NotificationsPage';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
 
@@ -56,6 +56,7 @@ function App() {
           {/* Admin routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboardPage /></ProtectedRoute>} />
           <Route path="/admin/categorias" element={<ProtectedRoute requiredRole="admin"><AdminCategoriesPage /></ProtectedRoute>} />
+          <Route path="/admin/moderacao" element={<ProtectedRoute requiredRole="admin"><AdminPage /></ProtectedRoute>} />
 
           {/* Help & Legal */}
           <Route path="/ajuda" element={<HelpPage />} />

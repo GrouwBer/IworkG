@@ -25,13 +25,25 @@ export default function NotificationsPage() {
   };
   useEffect(load, []);
 
-  const handleMarkRead = async (id: string) => {
-    const prev = [...notifications];
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    try {
-      await notificationService.markAsRead(id);
-    } catch {
-      setNotifications(prev); // rollback
+  const handleMarkRead = async (id: string, n: NotificationItem) => {
+    if (!n.read) {
+      const prev = [...notifications];
+      setNotifications(prev => prev.map(x => x.id === id ? { ...x, read: true } : x));
+      try {
+        await notificationService.markAsRead(id);
+      } catch {
+        setNotifications(prev); // rollback
+      }
+    }
+
+    if (n.type === 'interest') {
+      let parsedData = n.data;
+      if (typeof parsedData === 'string') {
+        try { parsedData = JSON.parse(parsedData); } catch {}
+      }
+      if (parsedData?.provider_id) {
+        navigate(`/prestador/${parsedData.provider_id}`);
+      }
     }
   };
 
@@ -57,7 +69,7 @@ export default function NotificationsPage() {
             {notifications.map(n => (
               <div
                 key={n.id}
-                onClick={() => !n.read && handleMarkRead(n.id)}
+                onClick={() => handleMarkRead(n.id, n)}
                 style={{ ...s.item, ...(!n.read ? s.unread : {}) }}
               >
                 <div style={s.itemLeft}>

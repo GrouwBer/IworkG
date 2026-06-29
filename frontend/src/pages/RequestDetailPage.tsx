@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { requestService, type InterestedProvider, type ServiceRequest } from '../services/requests';
+import ContactModal from '../components/ContactModal';
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,7 @@ export default function RequestDetailPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<any>(null);
 
   const isProvider = user?.role === 'provider';
   const isClient = user?.role === 'client';
@@ -146,12 +148,20 @@ export default function RequestDetailPage() {
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={() => navigate(`/prestador/${item.provider.id}`)}
-                    style={styles.viewProfileBtn}
-                  >
-                    Ver Perfil
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => navigate(`/prestador/${item.provider.id}`)}
+                      style={styles.viewProfileBtn}
+                    >
+                      Ver Perfil
+                    </button>
+                    <button
+                      onClick={() => setSelectedProvider(item.provider)}
+                      style={{ ...styles.viewProfileBtn, backgroundColor: '#16a34a' }}
+                    >
+                      💬 Contato
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -180,6 +190,16 @@ export default function RequestDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedProvider && (
+        <ContactModal
+          open={!!selectedProvider}
+          onClose={() => setSelectedProvider(null)}
+          providerId={selectedProvider.id}
+          providerName={selectedProvider.name}
+          providerPhone={selectedProvider.phone || null}
+        />
       )}
 
       {error && <div style={styles.errorToast}>{error}</div>}

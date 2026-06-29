@@ -8,9 +8,11 @@ COPY vite.config.ts ./
 COPY index.html ./
 COPY public/ ./public/
 COPY src/ ./src/
+COPY .env* ./
 
 # Build with API proxy URL (nginx will proxy /api → backend)
-ENV VITE_API_URL=/api
+# Using "/" prevents config.ts from falling back to localhost:3001 via || operator
+ENV VITE_API_URL=/
 RUN npm run build
 
 # ── Runtime stage: nginx ──

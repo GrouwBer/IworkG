@@ -52,7 +52,10 @@ export default function AdminDashboardPage() {
       <header style={styles.header}>
         <button onClick={() => navigate('/dashboard')} style={styles.backBtn}>← Dashboard</button>
         <h1 style={styles.logo}>Painel Admin</h1>
-        <button onClick={() => navigate('/admin/categorias')} style={styles.navBtn}>📋 Categorias</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => navigate('/admin/categorias')} style={styles.navBtn}>📋 Categorias</button>
+          <button onClick={() => navigate('/admin/moderacao')} style={styles.navBtn}>🛡️ Moderação</button>
+        </div>
       </header>
 
       <main style={styles.main}>

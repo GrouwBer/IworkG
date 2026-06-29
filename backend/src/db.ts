@@ -200,14 +200,17 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS reports (
     id TEXT PRIMARY KEY,
     reporter_id TEXT NOT NULL,
-    reported_provider_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
     reason TEXT NOT NULL,
     description TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
+    resolution TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    reviewed_at TEXT,
+    resolved_at TEXT,
+    resolved_by TEXT,
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (reported_provider_id) REFERENCES provider_profiles(id) ON DELETE CASCADE
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
   );
 `);
 
@@ -526,9 +529,41 @@ export function createProviderProfile(userId: string, data: {
   `).run(id, userId, data.category_id, data.description, data.city, data.state,
     data.experience_years || 0, data.service_radius_km || 10, data.address || '',
     data.latitude || null, data.longitude || null);
-  // Promote user to provider role
   db.prepare("UPDATE users SET role = 'provider', updated_at = datetime('now') WHERE id = ?").run(userId);
   return id;
+}
+
+export function updateProviderProfile(userId: string, data: {
+  description?: string;
+  city?: string;
+  state?: string;
+  experience_years?: number;
+  service_radius_km?: number;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const profile = getProviderProfile(userId);
+  if (!profile) return false;
+  
+  db.prepare(`
+    UPDATE provider_profiles
+    SET description = COALESCE(?, description),
+        city = COALESCE(?, city),
+        state = COALESCE(?, state),
+        experience_years = COALESCE(?, experience_years),
+        service_radius_km = COALESCE(?, service_radius_km),
+        address = COALESCE(?, address),
+        latitude = COALESCE(?, latitude),
+        longitude = COALESCE(?, longitude),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    data.description, data.city, data.state, 
+    data.experience_years, data.service_radius_km, data.address,
+    data.latitude, data.longitude, profile.id
+  );
+  return true;
 }
 
 // ═══════════════════════════════════════════
