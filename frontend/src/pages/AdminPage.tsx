@@ -109,12 +109,12 @@ export default function AdminPage() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
+        <button onClick={() => navigate('/admin/dashboard')} style={styles.backBtn}>
+          ← Painel Admin
+        </button>
         <h1 style={styles.logo}>IworkG Admin</h1>
         <div style={styles.headerRight}>
           <span style={styles.adminName}>{user.name}</span>
-          <button onClick={() => navigate('/dashboard')} style={styles.backBtn}>
-            Dashboard
-          </button>
         </div>
       </header>
 

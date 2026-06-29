@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import multer from 'multer';
 import db, {
   getWizardState, createWizardState, updateWizardState, deleteWizardState,
-  getProviderProfile, createProviderProfile, setProviderCategories, getProviderCategories, getAllCategories,
+  getProviderProfile, createProviderProfile, updateProviderProfile, setProviderCategories, getProviderCategories, getAllCategories,
   addPortfolioPhoto, getPortfolioPhotos, getPortfolioPhoto, deletePortfolioPhoto, countPortfolioPhotos,
 } from '../db';
 import { processAndSaveImage, deleteImageFile } from '../services/image';
@@ -87,6 +87,26 @@ router.get('/me', (req: Request, res: Response) => {
   });
 });
 
+router.put('/me', (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { categories, ...data } = req.body;
+  if (!getProviderProfile(userId)) { res.status(404).json({ error: 'Perfil não encontrado.' }); return; }
+  
+  if (data.description && data.description.trim().length < 10) { res.status(400).json({ error: 'Descrição deve ter pelo menos 10 caracteres.' }); return; }
+  
+  try {
+    updateProviderProfile(userId, data);
+    if (categories && Array.isArray(categories) && categories.length > 0) {
+      const profile = getProviderProfile(userId);
+      if (profile) setProviderCategories(profile.id, categories);
+    }
+    const updated = getProviderProfile(userId);
+    res.json({ message: 'Perfil atualizado com sucesso.', profile: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao atualizar perfil.' });
+  }
+});
+
 // ═══════════════════════════════════════════════
 // Portfolio endpoints (issue #6)
 // ═══════════════════════════════════════════════
@@ -108,6 +128,13 @@ router.post('/portfolio/upload', upload.single('photo'), async (req: Request, re
   } catch (err: any) { res.status(400).json({ error: err.message || 'Erro ao processar imagem.' }); }
 });
 
+router.get('/me/portfolio', (req: Request, res: Response) => {
+  const profile = getProviderProfile(req.user!.id);
+  if (!profile) { res.status(404).json({ error: 'Perfil de prestador não encontrado.' }); return; }
+  const photos = getPortfolioPhotos(profile.id);
+  res.json({ providerId: profile.id, photos: photos.map((p: any) => ({ id: p.id, tag: p.tag, mimeType: p.mime_type, sizeBytes: p.size_bytes, originalName: p.original_name, url: `/uploads/portfolio/${p.filename}`, createdAt: p.created_at, sortOrder: p.sort_order })) });
+});
+
 router.get('/:id/portfolio', (req: Request, res: Response) => {
   const profile = db.prepare('SELECT * FROM provider_profiles WHERE id = ?').get(req.params.id) as any;
   if (!profile) { res.status(404).json({ error: 'Perfil não encontrado.' }); return; }
@@ -125,11 +152,6 @@ router.delete('/portfolio/:photoId', (req: Request, res: Response) => {
   res.json({ message: 'Foto excluída com sucesso.' });
 });
 
-router.get('/me/portfolio', (req: Request, res: Response) => {
-  const profile = getProviderProfile(req.user!.id);
-  if (!profile) { res.status(404).json({ error: 'Perfil de prestador não encontrado.' }); return; }
-  const photos = getPortfolioPhotos(profile.id);
-  res.json({ providerId: profile.id, photos: photos.map((p: any) => ({ id: p.id, tag: p.tag, mimeType: p.mime_type, sizeBytes: p.size_bytes, originalName: p.original_name, url: `/uploads/portfolio/${p.filename}`, createdAt: p.created_at, sortOrder: p.sort_order })) });
-});
+
 
 export default router;
